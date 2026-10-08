@@ -913,37 +913,6 @@ function generateFindings(){
         ' rounds — may suggest strategic timing.');
   }
 
-  // ---- 6. Opposite betting (manual §9): opposing positions in one round ----
-  let pairs = [['banker','player'], ['red','black'], ['even','odd'], ['high','low'], ['1-18','19-36'], ['manque','passe']];
-  let roundPos = {};
-  for(let i = 0; i < worksheetData.length; i++){
-    let rid = worksheetData[i][RoundID].formattedValue;
-    let pos = worksheetData[i][BetPosition].formattedValue.toLowerCase();
-    if(!roundPos[rid]){ roundPos[rid] = []; }
-    roundPos[rid].push(pos);
-  }
-  let oppRounds = 0;
-  let oppPair = '';
-  for(let rid in roundPos){
-    for(let p = 0; p < pairs.length; p++){
-      let hasA = roundPos[rid].some(pos => pos.indexOf(pairs[p][0]) !== -1);
-      let hasB = roundPos[rid].some(pos => pos.indexOf(pairs[p][1]) !== -1);
-      if(hasA && hasB){
-        oppRounds++;
-        oppPair = pairs[p][0].charAt(0).toUpperCase() + pairs[p][0].slice(1) + ' / ' +
-                  pairs[p][1].charAt(0).toUpperCase() + pairs[p][1].slice(1);
-        break;
-      }
-    }
-  }
-  if(oppRounds >= 5 || oppRounds >= rounds * 0.25 && oppRounds >= 2){
-    add('danger', '<b>Opposite betting:</b> opposing positions (' + oppPair + ') in ' + oppRounds +
-        ' round(s) — possible balance laundering / bonus abuse.');
-  }else if(oppRounds >= 2){
-    add('warning', 'Opposite betting: both sides (' + oppPair + ') covered in ' + oppRounds + ' round(s).');
-  }
-  OppRoundsCount = oppRounds;
-
   // ---- 7. Dealer analysis (manual: Dealer Report guidelines) ----
   if(rounds >= 15 && DealerArry.length > 1){
     // 7a. Wins concentrated on a single dealer while losing with others
@@ -1030,6 +999,44 @@ generateFindings();
 
 let lastWinnerAnswers = [];
 
+// ---- Opposite betting (silent check, only on games where it can occur) ----
+// Applicable only if the session contains bet positions that belong to a known
+// opposing pair (e.g. Banker/Player, Red/Black). Exact position match — side
+// bets like "Banker Bonus" / "Player Bonus" do NOT count as opposite betting.
+let OppApplicable = false;
+const OPP_PAIRS = [['banker','player'], ['red','black'], ['even','odd'], ['high','low'], ['1-18','19-36'], ['manque','passe']];
+
+function analyzeOppositeBetting(){
+  OppRoundsCount = 0;
+  OppApplicable = false;
+
+  let roundPos = {};
+  let positionSet = {};
+  for(let i = 0; i < worksheetData.length; i++){
+    let rid = worksheetData[i][RoundID].formattedValue;
+    let pos  = worksheetData[i][BetPosition].formattedValue.trim().toLowerCase();
+    if(!roundPos[rid]){ roundPos[rid] = []; }
+    roundPos[rid].push(pos);
+    positionSet[pos] = true;
+  }
+
+  // run only for games where opposite betting is structurally possible
+  // (session must contain at least one side of a known opposing pair)
+  for(let p = 0; p < OPP_PAIRS.length; p++){
+    if(positionSet[OPP_PAIRS[p][0]] || positionSet[OPP_PAIRS[p][1]]){ OppApplicable = true; break; }
+  }
+  if(!OppApplicable){ return; }
+
+  for(let rid in roundPos){
+    for(let p = 0; p < OPP_PAIRS.length; p++){
+      if(roundPos[rid].indexOf(OPP_PAIRS[p][0]) !== -1 && roundPos[rid].indexOf(OPP_PAIRS[p][1]) !== -1){
+        OppRoundsCount++;
+        break;
+      }
+    }
+  }
+}
+
 function computeWinnerAnswers(){
 
   let rounds  = RoundArry.length;
@@ -1104,14 +1111,11 @@ function computeWinnerAnswers(){
   else{ br = 'Many long and short breaks'; }
   answers.push({group: 'Report dropdowns', field: 'Breaks during analysis', value: br});
 
-  // ---------- Signs of opposite betting ----------
-  // Can only be checked one-sided here: opposing positions by THIS player within
-  // the same round. Full opposite betting between two accounts must be verified
-  // via the IP report (manual §9) — cannot be decided from a single account.
-  answers.push({group: 'Report dropdowns', field: 'Signs of opposite betting?', value: OppRoundsCount > 0 ? 'Yes' : 'No',
-                note: OppRoundsCount > 0
-                  ? 'same-round opposing bets in ' + OppRoundsCount + ' round(s) — verify across accounts via IP report'
-                  : 'no same-round opposing bets by this player; cross-account check (IP report) still required'});
+  // ---------- Signs of opposite betting (only for games where it applies) ----------
+  analyzeOppositeBetting();
+  if(OppApplicable){
+    answers.push({group: 'Report dropdowns', field: 'Signs of opposite betting?', value: OppRoundsCount > 0 ? 'Yes' : 'No'});
+  }
 
   // ---------- Wager statistics ----------
   let maxWager = 0, minWager = null;
