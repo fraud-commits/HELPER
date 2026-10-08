@@ -336,6 +336,18 @@ margin: 1px;
     text-decoration: none;
   }
 
+  /* manual-copy fallback: pre-selected field when the clipboard is blocked */
+  .gap-manual{
+    width: 11em;
+    max-width: 100%;
+    background: #1e1e1e;
+    border: 1px solid #6b6b6b;
+    border-radius: 3px;
+    color: #ffd479;
+    font: inherit;
+    padding: 0 4px;
+  }
+
   .gap-tip-meta{
     opacity: .9;
   }

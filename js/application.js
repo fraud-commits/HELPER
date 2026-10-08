@@ -473,7 +473,8 @@ $(document)
   .off('click.gaptip', '#gap-tip')
   .on('click.gaptip', '#gap-tip', function(e){ e.stopPropagation(); })
   .off('click.gaptip-out')
-  .on('click.gaptip-out', function(){ // click anywhere else unfixed
+  .on('click.gaptip-out', function(e){ // click anywhere else unfixed
+    if($(e.target).closest('#gap-tip').length){ return; } // clicks inside the tooltip don't unfix
     if(gapTipPinned){ gapTipUnpin(); gapTipHide(true); }
   })
   .off('click.gapcopy', '.gap-copy')
@@ -485,13 +486,33 @@ $(document)
       $btn.addClass('copied');
       setTimeout(function(){ $btn.removeClass('copied'); }, 1000);
     }
+    // clipboard is blocked (e.g. embedded Tableau browser):
+    // swap the button for a pre-selected field so the analyst can press Ctrl+C
+    function manualCopy(){
+      let $input = $('<input class="gap-manual" readonly="readonly" value="' + txt.replace(/"/g, '&quot;') + '">');
+      $btn.replaceWith($input);
+      $input.focus();
+      try{ $input[0].setSelectionRange(0, txt.length); }catch(err){}
+      $('#gap-tip .gap-tip-hint').text('clipboard is blocked — press Ctrl+C, then click elsewhere');
+    }
     function fallback(){
-      let ta = document.createElement('textarea');
-      ta.value = txt;
-      document.body.appendChild(ta);
-      ta.select();
-      try{ document.execCommand('copy'); done(); }catch(err){}
-      document.body.removeChild(ta);
+      let ok = false, ta = null;
+      try{
+        ta = document.createElement('textarea');
+        ta.value = txt;
+        ta.setAttribute('readonly', '');
+        ta.style.position = 'fixed';
+        ta.style.top = '0';
+        ta.style.left = '0';
+        ta.style.opacity = '0';
+        document.body.appendChild(ta);
+        ta.focus();
+        ta.select();
+        try{ ta.setSelectionRange(0, txt.length); }catch(err2){}
+        ok = document.execCommand('copy');
+      }catch(err){ ok = false; }
+      try{ if(ta){ document.body.removeChild(ta); } }catch(err3){}
+      if(ok){ done(); } else { manualCopy(); }
     }
     if(navigator.clipboard && navigator.clipboard.writeText){
       navigator.clipboard.writeText(txt).then(done, fallback);
