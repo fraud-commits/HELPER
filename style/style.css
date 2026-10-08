@@ -415,7 +415,21 @@ th{
 th { white-space: nowrap; }
 
 .table-footer{
-  float: left;
+  float: none;
+  border-top: 1px solid #edf2f9;
+}
+
+/* match row layout rules used by thead/tbody rows so cells align under columns */
+.table-footer tr{
+  display: table;
+  width: 100%;
+  table-layout: fixed;
+}
+
+.table-footer th{
+  font-weight: 600;
+  color: #2a2a2a;
+  padding-top: 6px;
 }
 
 /* Key findings panel */

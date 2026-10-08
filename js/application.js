@@ -785,37 +785,21 @@ function BetPositionTop(){
                                             </tr>
     `)
   }
- // $('.table-bettop').DataTable()
- $('.table-bettop').DataTable({
-  footerCallback: function (row, data, start, end, display) {
-      var api = this.api();
+ // Grand totals under each column of the Bet type statistics table
+ let totalBetAll = 0, totalNetAll = 0, totalCountAll = 0;
+ for(let i = 0; i < BetPositionArry.length; i++){
+   totalBetAll  += BetPositionArry[i].TotalBet;
+   totalNetAll  += BetPositionArry[i].TotalNet;
+   totalCountAll += BetPositionArry[i].RoundCount;
+ }
+ let totalMarginAll = totalBetAll > 0 ? totalNetAll / totalBetAll * 100 : 0;
 
-      // Remove the formatting to get integer data for summation
-      var intVal = function (i) {
-          return typeof i === 'string' ? i.replace(/[\$,]/g, '') * 1 : typeof i === 'number' ? i : 0;
-      };
+ $('.table-bettop .foot-bet').text(totalBetAll.toFixed(2));
+ $('.table-bettop .foot-net').html(negWrap(totalNetAll, totalNetAll.toFixed(2)));
+ $('.table-bettop .foot-margin').html(negWrap(totalNetAll, totalMarginAll.toFixed(2) + ' %'));
+ $('.table-bettop .foot-count').text(totalCountAll);
 
-      // Total over all pages
-      total = api
-          .column(2)
-          .data()
-          .reduce(function (a, b) {
-              return intVal(a) + intVal(b);
-          }, 0);
-
-      // Total over this page
-      pageTotal = api
-          .column(2, { page: 'current' })
-          .data()
-          .reduce(function (a, b) {
-              return intVal(a) + intVal(b);
-          }, 0);
-
-      // Update footer
-      $(api.column(4).footer()).html(' € ' + negWrap(pageTotal, pageTotal.toFixed(2)) + ' ( € ' + negWrap(total, total.toFixed(2)) + ' Total)');
-
-  },
-});
+ $('.table-bettop').DataTable();
 
 }
 
