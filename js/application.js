@@ -1226,16 +1226,22 @@ function computeWinnerAnswers(){
   else{ prog = 'Chaotic wagers, regardless to previous game outcome'; }
 
   // Bet ramp => "Ramping ( Card counter )" only for a clear late spike
+  let progWhy;
+  if(rounds <= 1){ progWhy = 'only 1 round in the session'; }
+  else{
+    progWhy = 'flat ' + samePct.toFixed(0) + '% · negative ' + negPct.toFixed(0) + '% · positive ' + upPct2.toFixed(0) + '% · chaotic ' + chaosPct.toFixed(0) + '% of ' + rounds + ' rounds';
+  }
   if(rounds >= 10 && avgBetSafe() > 0){
     let maxI = 0;
     for(let i = 0; i < rounds; i++){ if(RoundArry[i].TotalRoundBet > RoundArry[maxI].TotalRoundBet){ maxI = i; } }
     if(RoundArry[maxI].TotalRoundBet >= 4 * avgBetSafe() && maxI > rounds / 2 && prog.indexOf('Chaotic') === 0){
       prog = 'Ramping ( Card counter )';
+      progWhy = 'max round bet ' + eur(RoundArry[maxI].TotalRoundBet) + ' is ' + (RoundArry[maxI].TotalRoundBet / avgBetSafe()).toFixed(1) + '× the average (' + eur(avgBetSafe()) + '), round ' + RoundArry[maxI].RoundId + ' in the 2nd half of the session';
     }
   }
   function avgBetSafe(){ return rounds > 0 ? TotalBet / rounds : 0; }
 
-  answers.push({group: 'Report dropdowns', field: 'Betting progression', value: prog});
+  answers.push({group: 'Report dropdowns', field: 'Betting progression', value: prog, why: progWhy});
 
   // ---------- Bet continuity (exact report options) ----------
   // Skip share by ESTIMATED skipped game rounds (time-based), not just gap count
@@ -1249,7 +1255,11 @@ function computeWinnerAnswers(){
   else if(skipShare <= 15){ cont = 'Mainly sequential games, however at some passages skips rounds'; }
   else if(skipShare <= 40){ cont = 'Skips rounds time to time'; }
   else{ cont = 'Often skips rounds'; }
-  answers.push({group: 'Report dropdowns', field: 'Bet continuity', value: cont});
+  let contWhy;
+  if(rounds == 1){ contWhy = 'only 1 round in the session'; }
+  else if(RoundSkipp == 0){ contWhy = rounds + ' played rounds, no skip gaps (3–10 min)'; }
+  else{ contWhy = 'est. ' + EstSkippedRounds + ' skipped of ' + (rounds + EstSkippedRounds) + ' (' + skipShare.toFixed(0) + '%) in ' + RoundSkipp + ' skip gap(s)'; }
+  answers.push({group: 'Report dropdowns', field: 'Bet continuity', value: cont, why: contWhy});
 
   // ---------- Breaks during analysis (exact report options) ----------
   let S = ShortBreak, L = LongBreak, T = S + L;
@@ -1263,12 +1273,21 @@ function computeWinnerAnswers(){
   else if(L == 0){ br = 'Many short breaks'; }
   else if(S == 0){ br = 'Many long breaks'; }
   else{ br = 'Many long and short breaks'; }
-  answers.push({group: 'Report dropdowns', field: 'Breaks during analysis', value: br});
+  let brWhy;
+  if(rounds == 1){ brWhy = 'only 1 round in the session'; }
+  else if(T == 0){ brWhy = 'no gaps ≥ 10 min between played rounds'; }
+  else{ brWhy = S + ' short (10–30 min) + ' + L + ' long (> 30 min) = ' + T + ' break(s)'; }
+  answers.push({group: 'Report dropdowns', field: 'Breaks during analysis', value: br, why: brWhy});
 
   // ---------- Signs of opposite betting (only for games where it applies) ----------
   analyzeOppositeBetting();
   if(OppApplicable){
-    answers.push({group: 'Report dropdowns', field: 'Signs of opposite betting?', value: OppRoundsCount > 0 ? 'Yes' : 'No'});
+    let oppYes = OppRoundsCount > 0;
+    answers.push({group: 'Report dropdowns', field: 'Signs of opposite betting?',
+      value: oppYes ? 'Yes' : 'No',
+      why: oppYes
+        ? OppRoundsCount + ' round(s) with opposing bets on both sides (exact position match)'
+        : 'no same-round opposing bets by this player in ' + rounds + ' rounds; cross-account check (IP report) still required'});
   }
 
   // ---------- Wager statistics ----------
@@ -1344,11 +1363,15 @@ function renderWinnerAnswers(){
       currentGroup = a.group;
       $target.append('<div class="ra-group-row">' + currentGroup + '</div>');
     }
+    // copy button only on dropdown suggestions (stats card is analysis-only)
+    let copyBtn = ($target === $list && $list.length)
+      ? '<button type="button" class="ra-copy" data-i="' + i + '" title="Copy"><i class="bi bi-clipboard"></i></button>'
+      : '';
     $target.append(
       '<div class="ra-row">' +
         '<span class="ra-field">' + a.field + '</span>' +
-        '<span class="ra-value' + (a.neg ? ' neg-val' : '') + '">' + a.value + (a.note ? ' <span class="text-muted ra-note">(' + a.note + ')</span>' : '') + '</span>' +
-        '<button type="button" class="ra-copy" data-i="' + i + '" title="Copy"><i class="bi bi-clipboard"></i></button>' +
+        '<span class="ra-value' + (a.neg ? ' neg-val' : '') + '">' + a.value + (a.note ? ' <span class="text-muted ra-note">(' + a.note + ')</span>' : '') + (a.why ? '<span class="ra-why">' + a.why + '</span>' : '') + '</span>' +
+        copyBtn +
       '</div>'
     );
   }

@@ -613,6 +613,15 @@ th { white-space: nowrap; }
   font-size: 12px;
 }
 
+/* reason why this dropdown answer was picked */
+.ra-why{
+  display: block;
+  font-weight: 400;
+  font-size: 12px;
+  color: rgba(114,132,154,0.95);
+  margin-top: 1px;
+}
+
 .ra-copy{
   border: none;
   background: transparent;
