@@ -362,6 +362,15 @@ function parseRoundTime(t){
   return m.isValid() ? m : null;
 }
 
+function fmtGap(mins){
+  if(mins >= 60){
+    let h = Math.floor(mins / 60);
+    let m = Math.round(mins - h * 60);
+    return h + ' h ' + m + ' min';
+  }
+  return mins.toFixed(1) + ' min';
+}
+
 function BreakCounter(){
 
   // --- sort a copy of rounds by timestamp (data order is not guaranteed) ---
@@ -387,29 +396,45 @@ function BreakCounter(){
     if(prevValid === null){
       // first played round of the session
       SequentialGame += 1;
-      $('.break-Heat-Map').append('<div class="badge-sqr badge-sql-c"></div>');
+      $('.break-Heat-Map').append('<div class="badge-sqr badge-sql-c hmap-tip" data-tip="' + sorted[i].r.RoundId + '\nfirst round of the session"></div>');
       prevValid = sorted[i];
       continue;
     }
 
     // gap in minutes between this round and the previous PLAYED round
     let gap = sorted[i].t.diff(prevValid.t, 'minutes', true);
+    let gapType, gapClass, gapEst = 0;
 
     if(gap < BREAK_RULES.SKIP_MIN){
       SequentialGame += 1;
-      $('.break-Heat-Map').append('<div class="badge-sqr badge-sql-c"></div>');
+      gapType = 'sequential'; gapClass = 'badge-sql-c';
     }else if(gap < BREAK_RULES.SKIP_MAX){
       // SKIP: player stayed but did not bet; estimate how many game rounds were missed
       RoundSkipp += 1;
-      EstSkippedRounds += Math.max(1, Math.round(gap / cadence) - 1);
-      $('.break-Heat-Map').append('<div class="badge-sqr badge-skip-c"></div>');
+      gapEst = Math.max(1, Math.round(gap / cadence) - 1);
+      EstSkippedRounds += gapEst;
+      gapType = 'SKIP'; gapClass = 'badge-skip-c';
     }else if(gap < BREAK_RULES.SHORT_MAX){
       ShortBreak += 1;
-      $('.break-Heat-Map').append('<div class="badge-sqr badge-short-c"></div>');
+      gapType = 'SHORT BREAK'; gapClass = 'badge-short-c';
     }else{
       LongBreak += 1;
-      $('.break-Heat-Map').append('<div class="badge-sqr badge-long-c"></div>');
+      gapType = 'LONG BREAK'; gapClass = 'badge-long-c';
     }
+
+    // remember the gap on the round itself -> used for hover hint in Round statistics
+    sorted[i].r.gapInfo = {
+      gap: gap,
+      type: gapType,
+      est: gapEst,
+      prevRound: prevValid.r.RoundId
+    };
+
+    // hover tooltip on the heat-map square: between which rounds the gap is
+    let gapTip = prevValid.r.RoundId + ' → ' + sorted[i].r.RoundId + '\n'
+               + fmtGap(gap) + ' · ' + gapType
+               + (gapEst > 0 ? ' (~' + gapEst + ' rounds missed)' : '');
+    $('.break-Heat-Map').append('<div class="badge-sqr ' + gapClass + ' hmap-tip" data-tip="' + gapTip.replace(/"/g, '&quot;') + '"></div>');
 
     prevValid = sorted[i];
   }
@@ -747,8 +772,16 @@ if (element ) {
 
 function RoundTop(x){
 
+  // hover hint: between which rounds the skip/break was (set by BreakCounter)
+  let g = RoundArry[x].gapInfo;
+  let gapTitle = '';
+  if(g){
+    gapTitle = ' title="' + g.prevRound + ' → ' + RoundArry[x].RoundId + ' · ' + fmtGap(g.gap) + ' · '
+             + (g.type === 'sequential' ? 'sequential' : g.type + (g.est > 0 ? ' (~' + g.est + ' rounds missed)' : '')) + '"';
+  }
+
   $(".RoundTop").append(`
-  <tr>
+  <tr` + gapTitle + `>
     <td>` + RoundArry[x].RoundId + `</td>
     <td>` + RoundArry[x].TotalRoundBet.toFixed(2) + `</td>
     <td` + negClass(RoundArry[x].TotalRoundNet) + `>` + RoundArry[x].TotalRoundNet.toFixed(2) + `</td>
