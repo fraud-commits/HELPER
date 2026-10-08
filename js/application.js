@@ -180,15 +180,21 @@ Trigger();
   }
 
   let Margin = TotalNet / TotalBet * 100;
-  console.log("Margin : " + Margin)
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    console.log("Margin : " + Margin)
+
+  // helpers: red color for negative values
+  function negClass(v){ return (typeof v === 'number' && v < 0) ? ' class="neg-val"' : ''; }
+  function negWrap(v, txt){
+    return (typeof v === 'number' && v < 0) ? '<span class="neg-val">' + txt + '</span>' : txt;
+  }
+
   $('.Totalbet').text("€ " + TotalBet.toLocaleString('en-US', {
     minimumFractionDigits: 2
   }));
   $('.Totalnet').text("€ " + TotalNet.toLocaleString('en-US', {
     minimumFractionDigits: 2
-  }));
-  $('.Margin').text(Margin.toFixed(2) + "%");
+  })).toggleClass('neg-val', TotalNet < 0);
+  $('.Margin').text(Margin.toFixed(2) + "%").toggleClass('neg-val', Margin < 0);
   $('.margin-bar').css('width', Margin.toFixed(2) + "%");
 
 
@@ -723,9 +729,9 @@ if (element ) {
     <tr>
       <td>` + DealerArry[i].DealerName + `</td>
       <td>` + DealerArry[i].TotalBet.toFixed(2) + `</td>
-      <td>` + DealerArry[i].TotalNet.toFixed(2) + `</td>
+      <td` + negClass(DealerArry[i].TotalNet) + `>` + DealerArry[i].TotalNet.toFixed(2) + `</td>
       <td>`+ DealerArry[i].RoundCount +` </td>
-      <td>`+ (DealerArry[i].TotalNet.toFixed(2) /  DealerArry[i].TotalBet.toFixed(2) * 100).toFixed(2) +` </td>
+      <td` + negClass(DealerArry[i].TotalNet) + `>`+ (DealerArry[i].TotalNet.toFixed(2) /  DealerArry[i].TotalBet.toFixed(2) * 100).toFixed(2) +` </td>
       </tr>
       `
     )
@@ -745,8 +751,8 @@ function RoundTop(x){
   <tr>
     <td>` + RoundArry[x].RoundId + `</td>
     <td>` + RoundArry[x].TotalRoundBet.toFixed(2) + `</td>
-    <td>` + RoundArry[x].TotalRoundNet.toFixed(2) + `</td>
-    <td>`+ (RoundArry[x].TotalRoundNet.toFixed(2) /  RoundArry[x].TotalRoundBet.toFixed(2) * 100).toFixed(2)+` % </td>
+    <td` + negClass(RoundArry[x].TotalRoundNet) + `>` + RoundArry[x].TotalRoundNet.toFixed(2) + `</td>
+    <td` + negClass(RoundArry[x].TotalRoundNet) + `>`+ (RoundArry[x].TotalRoundNet.toFixed(2) /  RoundArry[x].TotalRoundBet.toFixed(2) * 100).toFixed(2)+` % </td>
     </tr>
     `
   )
@@ -767,8 +773,8 @@ function BetPositionTop(){
       <tr>
                                           <td>`+ BetPositionArry[i].BetPosition + `</td>
                                             <td>` + BetPositionArry[i].TotalBet.toFixed(2) +`</td>
-                                                <td>` + BetPositionArry[i].TotalNet.toFixed(2) +`</td>
-                                                <td>`+ (BetPositionArry[i].TotalNet.toFixed(2) /  BetPositionArry[i].TotalBet.toFixed(2) * 100).toFixed(2)+` % </td>
+                                                <td` + negClass(BetPositionArry[i].TotalNet) + `>` + BetPositionArry[i].TotalNet.toFixed(2) +`</td>
+                                                <td` + negClass(BetPositionArry[i].TotalNet) + `>`+ (BetPositionArry[i].TotalNet.toFixed(2) /  BetPositionArry[i].TotalBet.toFixed(2) * 100).toFixed(2)+` % </td>
                                                 <td>` + BetPositionArry[i].RoundCount +`</td>
                                                 <td>
                                                     <div class="d-flex align-items-center">
@@ -806,7 +812,7 @@ function BetPositionTop(){
           }, 0);
 
       // Update footer
-      $(api.column(4).footer()).html(' € ' + pageTotal.toFixed(2) + ' ( € ' + total.toFixed(2) + ' Total)');
+      $(api.column(4).footer()).html(' € ' + negWrap(pageTotal, pageTotal.toFixed(2)) + ' ( € ' + negWrap(total, total.toFixed(2)) + ' Total)');
 
   },
 });
@@ -1144,7 +1150,9 @@ function computeWinnerAnswers(){
   answers.push({group: 'Winning statistics', field: 'Maximum round winning', value: eur(maxW)});
   answers.push({group: 'Winning statistics', field: 'Minimum round winning', value: eur(minW)});
   answers.push({group: 'Winning statistics', field: 'Average round winning', value: eur(winNets.length > 0 ? sumW / winNets.length : 0)});
-  answers.push({group: 'Winning statistics', field: 'Average round result', value: (rounds > 0 && TotalNet >= 0 ? '+' : (rounds > 0 ? '-' : '')) + eur(rounds > 0 ? TotalNet / rounds : 0)});
+  answers.push({group: 'Winning statistics', field: 'Average round result',
+                value: (rounds > 0 && TotalNet >= 0 ? '+' : (rounds > 0 ? '-' : '')) + eur(rounds > 0 ? TotalNet / rounds : 0),
+                neg: rounds > 0 && TotalNet < 0});
 
   // ---------- Rounds ----------
   answers.push({group: 'Rounds', field: 'Winning rounds', value: String(WinRoundCnt)});
@@ -1172,7 +1180,7 @@ function renderWinnerAnswers(){
     $list.append(
       '<div class="ra-row">' +
         '<span class="ra-field">' + a.field + '</span>' +
-        '<span class="ra-value">' + a.value + (a.note ? ' <span class="text-muted ra-note">(' + a.note + ')</span>' : '') + '</span>' +
+        '<span class="ra-value' + (a.neg ? ' neg-val' : '') + '">' + a.value + (a.note ? ' <span class="text-muted ra-note">(' + a.note + ')</span>' : '') + '</span>' +
         '<button type="button" class="ra-copy" data-i="' + i + '" title="Copy"><i class="bi bi-clipboard"></i></button>' +
       '</div>'
     );
