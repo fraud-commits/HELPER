@@ -1151,8 +1151,15 @@ function computeWinnerAnswers(){
   }
   if(minWager === null){ minWager = 0; }
 
-  answers.push({group: 'Wager statistics', field: 'Maximum round wager', value: eur(maxWager)});
-  answers.push({group: 'Wager statistics', field: 'Minimum round wager', value: eur(minWager)});
+  // "In how many rounds" column of the report
+  let maxWagerRounds = 0, minWagerRounds = 0;
+  for(let i = 0; i < rounds; i++){
+    if(RoundArry[i].TotalRoundBet === maxWager){ maxWagerRounds++; }
+    if(RoundArry[i].TotalRoundBet === minWager){ minWagerRounds++; }
+  }
+
+  answers.push({group: 'Wager statistics', field: 'Maximum round wager', value: eur(maxWager), note: 'in ' + maxWagerRounds + (maxWagerRounds === 1 ? ' round' : ' rounds')});
+  answers.push({group: 'Wager statistics', field: 'Minimum round wager', value: eur(minWager), note: 'in ' + minWagerRounds + (minWagerRounds === 1 ? ' round' : ' rounds')});
   answers.push({group: 'Wager statistics', field: 'Average round wager', value: eur(avgBetSafe())});
 
   // ---------- Winning statistics ----------
@@ -1164,37 +1171,49 @@ function computeWinnerAnswers(){
   }
   if(minW === null){ minW = 0; }
 
-  answers.push({group: 'Winning statistics', field: 'Maximum round winning', value: eur(maxW)});
-  answers.push({group: 'Winning statistics', field: 'Minimum round winning', value: eur(minW)});
+  let maxWCount = 0, minWCount = 0;
+  for(let i = 0; i < winNets.length; i++){
+    if(winNets[i] === maxW){ maxWCount++; }
+    if(winNets[i] === minW){ minWCount++; }
+  }
+
+  answers.push({group: 'Winning statistics', field: 'Maximum round winning', value: eur(maxW), note: 'in ' + maxWCount + (maxWCount === 1 ? ' round' : ' rounds')});
+  answers.push({group: 'Winning statistics', field: 'Minimum round winning', value: eur(minW), note: 'in ' + minWCount + (minWCount === 1 ? ' round' : ' rounds')});
   answers.push({group: 'Winning statistics', field: 'Average round winning', value: eur(winNets.length > 0 ? sumW / winNets.length : 0)});
   answers.push({group: 'Winning statistics', field: 'Average round result',
                 value: (rounds > 0 && TotalNet >= 0 ? '+' : (rounds > 0 ? '-' : '')) + eur(rounds > 0 ? TotalNet / rounds : 0),
                 neg: rounds > 0 && TotalNet < 0});
 
   // ---------- Rounds ----------
-  answers.push({group: 'Rounds', field: 'Winning rounds', value: String(WinRoundCnt)});
-  answers.push({group: 'Rounds', field: 'Losing rounds',  value: String(LossRoundCnt)});
-  answers.push({group: 'Rounds', field: 'Even round',     value: String(TieRoundCnt)});
+  let pct = function(v){ return rounds > 0 ? (v / rounds * 100).toFixed(2) + ' % of all games' : '—'; };
+  answers.push({group: 'Rounds', field: 'Winning rounds', value: String(WinRoundCnt), note: pct(WinRoundCnt)});
+  answers.push({group: 'Rounds', field: 'Losing rounds',  value: String(LossRoundCnt), note: pct(LossRoundCnt)});
+  answers.push({group: 'Rounds', field: 'Even round',     value: String(TieRoundCnt), note: pct(TieRoundCnt)});
 
   return answers;
 }
 
 function renderWinnerAnswers(){
 
-  let $list = $('#ReportAnswers');
-  if(!$list.length){ return; } // panel is not present (e.g. index2.html)
+  // 'Report dropdowns' go to the bottom card, the rest (stats) to the analysis card
+  let $list   = $('#ReportAnswers');
+  let $stats  = $('#ReportStats');
+  if(!$list.length && !$stats.length){ return; } // panels are not present (e.g. index2.html)
   $list.empty();
+  $stats.empty();
 
   let answers = computeWinnerAnswers();
   let currentGroup = '';
 
   for(let i = 0; i < answers.length; i++){
     let a = answers[i];
+    let $target = (a.group === 'Report dropdowns') ? $list : $stats;
+    if(!$target.length){ continue; }
     if(a.group !== currentGroup){
       currentGroup = a.group;
-      $list.append('<div class="ra-group-row">' + currentGroup + '</div>');
+      $target.append('<div class="ra-group-row">' + currentGroup + '</div>');
     }
-    $list.append(
+    $target.append(
       '<div class="ra-row">' +
         '<span class="ra-field">' + a.field + '</span>' +
         '<span class="ra-value' + (a.neg ? ' neg-val' : '') + '">' + a.value + (a.note ? ' <span class="text-muted ra-note">(' + a.note + ')</span>' : '') + '</span>' +
