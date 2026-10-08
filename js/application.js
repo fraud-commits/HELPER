@@ -1,4 +1,4 @@
-﻿
+
 let unregisterFilterEventListener = null;
 let unregisterMarkSelectionEventListener = null;
 let worksheet = null;
@@ -106,6 +106,7 @@ function drawChartJS() {
            NetEUR = 9;
 
            let RoundSkipp = 0;
+           let OppRoundsCount = 0;
            let ShortBreak = 0;
            let LongBreak = 0;
            let SequentialGame = 0;
@@ -338,72 +339,80 @@ if (element3 ) {
 console.log(BetPositionArry)
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
+//////////////////////////////////////////////////////////////////////////////////////
+// BREAK RULES (explicitly defined):
+//   gap between two consecutive played rounds < 3 min   -> Sequential
+//   3 min  <= gap < 10 min  -> SKIP  (player watched but did not bet, est. skipped rounds counted)
+//   10 min <= gap < 30 min  -> SHORT BREAK
+//   gap    >= 30 min        -> LONG BREAK
+// Rounds are sorted by time first; timestamps that cannot be parsed are skipped.
+
+const BREAK_RULES = { SKIP_MIN: 3, SKIP_MAX: 10, SHORT_MAX: 30 };
+let EstSkippedRounds = 0; // estimated number of game rounds missed during skips
+
+function parseRoundTime(t){
+  let m = moment(t, ["DD-MM-YYYY HH:mm:ss a", "DD-MM-YYYY HH:mm:ss", "YYYY-MM-DD HH:mm:ss"], true);
+  if(!m.isValid()){ m = moment(t); } // last resort: let moment guess the format
+  return m.isValid() ? m : null;
+}
+
 function BreakCounter(){
 
-  // console.log("start index " + indexStart)
-//   console.log("end index "+ indexNext)
+  // --- sort a copy of rounds by timestamp (data order is not guaranteed) ---
+  let sorted = RoundArry.slice().map(function(r){
+    return { r: r, t: parseRoundTime(r.RoundTime) };
+  }).filter(function(o){ return o.t !== null; })
+    .sort(function(a, b){ return a.t.valueOf() - b.t.valueOf(); });
 
-  //console.log(worksheetData[0][UserId])
+  // --- typical round cadence = median gap of fast (sequential) intervals ---
+  let gaps = [];
+  for(let i = 1; i < sorted.length; i++){
+    let g = sorted[i].t.diff(sorted[i-1].t, 'minutes', true);
+    if(g >= 0 && g < BREAK_RULES.SKIP_MIN){ gaps.push(g); }
+  }
+  gaps.sort(function(a, b){ return a - b; });
+  let cadence = gaps.length > 0 ? gaps[Math.floor(gaps.length / 2)] : 1.5; // default: one round per 1.5 min
+  if(cadence <= 0){ cadence = 1.5; }
 
-  for(i = 0; i < RoundArry.length; i++){
+  let prevValid = null;
 
-    let indexStart = i;
-    let indexNext = 0;
-      
-    if(i == RoundArry.length - 1){
+  for(let i = 0; i < sorted.length; i++){
 
-      indexNext =  RoundArry.length -1
-
-
-    }else{
-      indexNext = i + 1
+    if(prevValid === null){
+      // first played round of the session
+      SequentialGame += 1;
+      $('.break-Heat-Map').append('<div class="badge-sqr badge-sql-c"></div>');
+      prevValid = sorted[i];
+      continue;
     }
-    
-    var startTime=moment(RoundArry[indexStart].RoundTime, "DD-MM-YYYY HH:mm:ss a");
-    var endTime=moment(RoundArry[indexNext].RoundTime, "DD-MM-YYYY HH:mm:ss a");
-    var duration = moment.duration(endTime.diff(startTime));
-    var hours = parseInt(duration.asHours());
-    var minutes = parseInt(duration.asMinutes())-hours*60;
 
- 
- //    console.log((hours + ' hour and '+ minutes+' minutes.'))
-       
-   //    var result = endTime.diff(startTime, 'hours') + " Hrs and " +     
-   //                     endTime.diff(startTime, 'minutes') + " Mns";
+    // gap in minutes between this round and the previous PLAYED round
+    let gap = sorted[i].t.diff(prevValid.t, 'minutes', true);
 
+    if(gap < BREAK_RULES.SKIP_MIN){
+      SequentialGame += 1;
+      $('.break-Heat-Map').append('<div class="badge-sqr badge-sql-c"></div>');
+    }else if(gap < BREAK_RULES.SKIP_MAX){
+      // SKIP: player stayed but did not bet; estimate how many game rounds were missed
+      RoundSkipp += 1;
+      EstSkippedRounds += Math.max(1, Math.round(gap / cadence) - 1);
+      $('.break-Heat-Map').append('<div class="badge-sqr badge-skip-c"></div>');
+    }else if(gap < BREAK_RULES.SHORT_MAX){
+      ShortBreak += 1;
+      $('.break-Heat-Map').append('<div class="badge-sqr badge-short-c"></div>');
+    }else{
+      LongBreak += 1;
+      $('.break-Heat-Map').append('<div class="badge-sqr badge-long-c"></div>');
+    }
 
- //SKIP
-      if(hours == 0 && minutes > 2 && minutes <= 10 && RoundArry[indexStart].RoundId !== RoundArry[indexNext].RoundId){
-        RoundSkipp += 1;
-        $('.skipcnt').text("format");
-        $('.break-Heat-Map').append('<div class="badge-sqr badge-skip-c"></div>')
- //SHORT        
-      }else if(hours == 0 && minutes > 10 && minutes <= 30 &&  RoundArry[indexStart].RoundId !== RoundArry[indexNext].RoundId){
-        ShortBreak += 1;
-        $('.break-Heat-Map').append('<div class="badge-sqr badge-short-c"></div>')
- //LONG        
-      }else if(hours >= 1 || minutes >= 31 &&  RoundArry[indexStart].RoundId !== RoundArry[indexNext].RoundId){
-        LongBreak += 1;
-        $('.break-Heat-Map').append('<div class="badge-sqr badge-long-c"></div>')
- // Sequential        
-      }else if( RoundArry[indexStart].RoundId !== RoundArry[indexNext].RoundId || indexStart == 0){
-        SequentialGame += 1;
-        $('.break-Heat-Map').append('<div class="badge-sqr badge-sql-c"></div>')
-      }
- 
-      
-   $('.skipcnt').text(RoundSkipp);
+    prevValid = sorted[i];
+  }
+
+  $('.skipcnt').text(RoundSkipp);
   $('.shortcnt').text(ShortBreak);
   $('.longcnt').text(LongBreak);
   $('.seqcnt').text(SequentialGame);
- 
-  let indexID = i + 3
-  let CurrentSqe = $(".badge-sqr")[indexID];
-
-
-
-  }
- 
+}
 let SkippProcent = RoundSkipp / RoundArry.length * 100;
 let ShortProcent = ShortBreak / RoundArry.length * 100;
 let LongProcent = LongBreak / RoundArry.length * 100;
@@ -468,9 +477,9 @@ else if (LongBreak == 1 && ShortBreak ==  2 ){
    // Betcontinuty    
     $('.Betcontinuty').text(BetContinuty);    
     
-    $('.Betcontinuty2').text(BetContinuty2); 
- }
- BreakCounter()
+    $('.Betcontinuty2').text(BetContinuty2);
+
+   BreakCounter()
 
 
 function BetProgression (){
@@ -887,12 +896,13 @@ function generateFindings(){
 
   // ---- 4. Round skipping (manual: "frequently skips game rounds, possibly
   //         waiting for favorable conditions") ----
-  let skipPct = pct(RoundSkipp, rounds);
-  if(skipPct >= 30){
-    add('danger', '<b>Frequently skips game rounds:</b> ' + RoundSkipp + ' skip(s) (' + skipPct.toFixed(0) +
-        '%) — possibly waiting for favorable conditions.');
-  }else if(skipPct >= 15){
-    add('warning', 'Player skips rounds: ' + RoundSkipp + ' skip(s), ' + skipPct.toFixed(0) + '% of the session.');
+  // Skip share is based on ESTIMATED skipped game rounds, not only gap count.
+  let skipShare = (RoundSkipp > 0) ? EstSkippedRounds / (rounds + EstSkippedRounds) * 100 : 0;
+  if(skipShare >= 30){
+    add('danger', '<b>Frequently skips game rounds:</b> est. ' + EstSkippedRounds + ' round(s) skipped in ' +
+        RoundSkipp + ' gap(s) (' + skipShare.toFixed(0) + '%) — possibly waiting for favorable conditions.');
+  }else if(skipShare >= 15){
+    add('warning', 'Player skips rounds: est. ' + EstSkippedRounds + ' round(s) skipped (' + skipShare.toFixed(0) + '% of the session).');
   }
 
   // ---- 5. Fragmented session (manual: "playing in short bursts with breaks
@@ -932,6 +942,7 @@ function generateFindings(){
   }else if(oppRounds >= 2){
     add('warning', 'Opposite betting: both sides (' + oppPair + ') covered in ' + oppRounds + ' round(s).');
   }
+  OppRoundsCount = oppRounds;
 
   // ---- 7. Dealer analysis (manual: Dealer Report guidelines) ----
   if(rounds >= 15 && DealerArry.length > 1){
@@ -1012,6 +1023,187 @@ function generateFindings(){
 generateFindings();
 
 // ========================= END KEY FINDINGS =========================
+
+// ==================== WINNER REPORT SUGGESTIONS =====================
+// Picks the exact dropdown options from the Winner Report form and
+// computes the numeric report fields, so the analyst can copy them 1:1.
+
+let lastWinnerAnswers = [];
+
+function computeWinnerAnswers(){
+
+  let rounds  = RoundArry.length;
+  let answers = [];
+  lastWinnerAnswers = answers;
+
+  let p = function(v){ return rounds > 0 ? v / rounds * 100 : 0; };
+  function eur(v){
+    return '€' + Math.abs(v).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+  }
+
+  // ---------- Betting progression (exact report options) ----------
+  let samePct  = p(same);
+  let negPct   = p(negativ + martingeil);
+  let upPct2   = p(up);
+  let chaosPct = p(chaotic);
+
+  let prog;
+  if(rounds <= 1){ prog = 'Other one'; }
+  else if(samePct >= 70){ prog = 'Flat wagers'; }
+  else if(samePct >= 50){ prog = 'Mainly flat wagers'; }
+  else if(martingeil >= 2 && negPct >= 50){ prog = 'Martingale betting system'; }
+  else if(negPct >= 70){ prog = 'Negative progression'; }
+  else if(negPct >= 50){ prog = 'Mainly negative betting progression'; }
+  else if(negPct >= 30 && samePct >= 30){ prog = 'Negative progression, however at some passages flat'; }
+  else if(upPct2 >= 85){ prog = 'Positive progression'; }
+  else if(upPct2 >= 60){ prog = 'Progressive betting'; }
+  else if(chaosPct >= 85){ prog = 'Chaotic'; }
+  else if(chaosPct >= 60 && samePct >= 20 && negPct >= 20){ prog = 'Chaotic, however at some passages flat wagers and at some passages negative progressions'; }
+  else if(chaosPct >= 60 && samePct >= 20){ prog = 'Chaotic, however at some passages flat wagers'; }
+  else if(chaosPct >= 60 && negPct >= 20){ prog = 'Chaotic, at some passages negative progression is selected'; }
+  else if(chaosPct >= 50){ prog = 'Mainly chaotic'; }
+  else{ prog = 'Chaotic wagers, regardless to previous game outcome'; }
+
+  // Bet ramp => "Ramping ( Card counter )" only for a clear late spike
+  if(rounds >= 10 && avgBetSafe() > 0){
+    let maxI = 0;
+    for(let i = 0; i < rounds; i++){ if(RoundArry[i].TotalRoundBet > RoundArry[maxI].TotalRoundBet){ maxI = i; } }
+    if(RoundArry[maxI].TotalRoundBet >= 4 * avgBetSafe() && maxI > rounds / 2 && prog.indexOf('Chaotic') === 0){
+      prog = 'Ramping ( Card counter )';
+    }
+  }
+  function avgBetSafe(){ return rounds > 0 ? TotalBet / rounds : 0; }
+
+  answers.push({group: 'Report dropdowns', field: 'Betting progression', value: prog});
+
+  // ---------- Bet continuity (exact report options) ----------
+  // Skip share by ESTIMATED skipped game rounds (time-based), not just gap count
+  let skipShare = (RoundSkipp > 0) ? EstSkippedRounds / (rounds + EstSkippedRounds) * 100 : 0;
+  let cont;
+  if(rounds == 1){ cont = 'Only one game round held'; }
+  else if(rounds <= 4){ cont = 'Held only few game rounds'; }
+  else if(rounds <= 10){ cont = RoundSkipp == 0 ? 'Short session, without skipping game rounds' : 'Short session, not many games in a row'; }
+  else if(skipShare == 0){ cont = rounds >= 30 ? 'Plays many rounds in a row without skipping rounds' : 'Does not skip game rounds'; }
+  else if(skipShare <= 5){ cont = rounds >= 30 ? 'Many sequential games, however, at some passages skips rounds' : 'Sequential games, however, skips rounds from time to time'; }
+  else if(skipShare <= 15){ cont = 'Mainly sequential games, however at some passages skips rounds'; }
+  else if(skipShare <= 40){ cont = 'Skips rounds time to time'; }
+  else{ cont = 'Often skips rounds'; }
+  answers.push({group: 'Report dropdowns', field: 'Bet continuity', value: cont});
+
+  // ---------- Breaks during analysis (exact report options) ----------
+  let S = ShortBreak, L = LongBreak, T = S + L;
+  let br;
+  if(rounds == 1){ br = 'Only one game round held'; }
+  else if(T == 0){ br = 'No breaks during the session'; }
+  else if(T <= 2){ br = 'Few breaks during the session'; }
+  else if(L == 0 && S <= 5){ br = 'Several short breaks'; }
+  else if(S == 0 && L <= 5){ br = 'Several long breaks'; }
+  else if(L > 0 && S > 0 && T <= 7){ br = 'Several long and short breaks'; }
+  else if(L == 0){ br = 'Many short breaks'; }
+  else if(S == 0){ br = 'Many long breaks'; }
+  else{ br = 'Many long and short breaks'; }
+  answers.push({group: 'Report dropdowns', field: 'Breaks during analysis', value: br});
+
+  // ---------- Signs of opposite betting ----------
+  // Can only be checked one-sided here: opposing positions by THIS player within
+  // the same round. Full opposite betting between two accounts must be verified
+  // via the IP report (manual §9) — cannot be decided from a single account.
+  answers.push({group: 'Report dropdowns', field: 'Signs of opposite betting?', value: OppRoundsCount > 0 ? 'Yes' : 'No',
+                note: OppRoundsCount > 0
+                  ? 'same-round opposing bets in ' + OppRoundsCount + ' round(s) — verify across accounts via IP report'
+                  : 'no same-round opposing bets by this player; cross-account check (IP report) still required'});
+
+  // ---------- Wager statistics ----------
+  let maxWager = 0, minWager = null;
+  let winNets = [];
+  for(let i = 0; i < rounds; i++){
+    let b = RoundArry[i].TotalRoundBet;
+    if(b > maxWager){ maxWager = b; }
+    if(minWager === null || b < minWager){ minWager = b; }
+    if(RoundArry[i].TotalRoundNet > 0){ winNets.push(RoundArry[i].TotalRoundNet); }
+  }
+  if(minWager === null){ minWager = 0; }
+
+  answers.push({group: 'Wager statistics', field: 'Maximum round wager', value: eur(maxWager)});
+  answers.push({group: 'Wager statistics', field: 'Minimum round wager', value: eur(minWager)});
+  answers.push({group: 'Wager statistics', field: 'Average round wager', value: eur(avgBetSafe())});
+
+  // ---------- Winning statistics ----------
+  let maxW = 0, minW = null, sumW = 0;
+  for(let i = 0; i < winNets.length; i++){
+    if(winNets[i] > maxW){ maxW = winNets[i]; }
+    if(minW === null || winNets[i] < minW){ minW = winNets[i]; }
+    sumW += winNets[i];
+  }
+  if(minW === null){ minW = 0; }
+
+  answers.push({group: 'Winning statistics', field: 'Maximum round winning', value: eur(maxW)});
+  answers.push({group: 'Winning statistics', field: 'Minimum round winning', value: eur(minW)});
+  answers.push({group: 'Winning statistics', field: 'Average round winning', value: eur(winNets.length > 0 ? sumW / winNets.length : 0)});
+  answers.push({group: 'Winning statistics', field: 'Average round result', value: (rounds > 0 && TotalNet >= 0 ? '+' : (rounds > 0 ? '-' : '')) + eur(rounds > 0 ? TotalNet / rounds : 0)});
+
+  // ---------- Rounds ----------
+  answers.push({group: 'Rounds', field: 'Winning rounds', value: String(WinRoundCnt)});
+  answers.push({group: 'Rounds', field: 'Losing rounds',  value: String(LossRoundCnt)});
+  answers.push({group: 'Rounds', field: 'Even round',     value: String(TieRoundCnt)});
+
+  return answers;
+}
+
+function renderWinnerAnswers(){
+
+  let $list = $('#ReportAnswers');
+  if(!$list.length){ return; } // panel is not present (e.g. index2.html)
+  $list.empty();
+
+  let answers = computeWinnerAnswers();
+  let currentGroup = '';
+
+  for(let i = 0; i < answers.length; i++){
+    let a = answers[i];
+    if(a.group !== currentGroup){
+      currentGroup = a.group;
+      $list.append('<div class="ra-group-row">' + currentGroup + '</div>');
+    }
+    $list.append(
+      '<div class="ra-row">' +
+        '<span class="ra-field">' + a.field + '</span>' +
+        '<span class="ra-value">' + a.value + (a.note ? ' <span class="text-muted ra-note">(' + a.note + ')</span>' : '') + '</span>' +
+        '<button type="button" class="ra-copy" data-i="' + i + '" title="Copy"><i class="bi bi-clipboard"></i></button>' +
+      '</div>'
+    );
+  }
+}
+
+$(document).off('click', '.ra-copy').on('click', '.ra-copy', function(){
+  let i = parseInt($(this).data('i'), 10);
+  let text = lastWinnerAnswers[i] ? lastWinnerAnswers[i].value : '';
+  let btn = $(this);
+
+  function done(){
+    btn.find('i').attr('class', 'bi bi-check');
+    setTimeout(function(){ btn.find('i').attr('class', 'bi bi-clipboard'); }, 1200);
+  }
+
+  if(navigator.clipboard && navigator.clipboard.writeText){
+    navigator.clipboard.writeText(text).then(done, function(){ fallbackCopy(); });
+  }else{
+    fallbackCopy();
+  }
+
+  function fallbackCopy(){
+    let ta = document.createElement('textarea');
+    ta.value = text;
+    document.body.appendChild(ta);
+    ta.select();
+    try{ document.execCommand('copy'); done(); }catch(e){}
+    document.body.removeChild(ta);
+  }
+});
+
+renderWinnerAnswers();
+
+// ================== END WINNER REPORT SUGGESTIONS ===================
 
   $("#bar-chart").remove();
 
