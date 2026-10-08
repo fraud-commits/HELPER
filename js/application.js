@@ -1,4 +1,4 @@
-
+﻿
 let unregisterFilterEventListener = null;
 let unregisterMarkSelectionEventListener = null;
 let worksheet = null;
@@ -78,11 +78,20 @@ function drawChartJS() {
    
 
    worksheet.getSummaryDataAsync().then(function (sumdata) {
-     
-    $(".Break-Heat-Map").empty();
-    $('.table-DealerTop').DataTable().clear().destroy();
-    $('.table-roundTop').DataTable().clear().destroy();
-    $('.table-bettop').DataTable().clear().destroy();
+
+     // --- No player selected: show placeholder instead of the dashboard ---
+     if (!sumdata.data || sumdata.data.length === 0) {
+       $('#dashboard-content').hide();
+       $('#empty-state').css('display', 'flex');
+       return;
+     }
+     $('#empty-state').hide();
+     $('#dashboard-content').show();
+
+     $(".Break-Heat-Map").empty();
+     if ($.fn.DataTable.isDataTable('.table-DealerTop')) { $('.table-DealerTop').DataTable().clear().destroy(); }
+     if ($.fn.DataTable.isDataTable('.table-roundTop')) { $('.table-roundTop').DataTable().clear().destroy(); }
+     if ($.fn.DataTable.isDataTable('.table-bettop'))   { $('.table-bettop').DataTable().clear().destroy(); }
 
      const RoundTime = 0,
            UserId = 5,
@@ -797,6 +806,212 @@ function BetPositionTop(){
 
 
 BetPositionTop()
+
+// ============================ KEY FINDINGS ============================
+// Auto-generated analytical bullet points aligned with the Risk Analyst
+// Manual (Roulette Monitoring checklist, Betting Progressions, Dealer
+// Report guidelines). Levels: danger (red flag) > warning (needs
+// attention) > info / success (normal behaviour).
+
+function generateFindings(){
+
+  let $list = $('.findings-list');
+  if(!$list.length){ return; } // panel is not present (e.g. index2.html)
+  $list.empty();
+
+  let findings = [];
+  let rounds   = RoundArry.length;
+  let decided  = WinRoundCnt + LossRoundCnt; // rounds without ties
+  let effWin   = decided > 0 ? WinRoundCnt / decided * 100 : 0;
+  let avgBet   = rounds  > 0 ? TotalBet / rounds : 0;
+  let maxRound = null;
+
+  for(let i = 0; i < rounds; i++){
+    if(maxRound === null || RoundArry[i].TotalRoundBet > maxRound.TotalRoundBet){
+      maxRound = RoundArry[i];
+    }
+  }
+
+  function eur(v){
+    return '€' + Math.abs(v).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+  }
+  function pct(part, total){
+    return total > 0 ? part / total * 100 : 0;
+  }
+  function add(level, text){ findings.push({level: level, text: text}); }
+
+  // ---- 1. Win rate vs theoretical expectation ----
+  if(decided >= 20){
+    if(effWin >= 55){
+      add('danger', '<b>Abnormally high win rate:</b> ' + effWin.toFixed(1) + '% (' + WinRoundCnt +
+          ' wins in ' + decided + ' decided rounds), expected is ~48-49%.');
+    }else if(effWin <= 42){
+      add('success', 'Win rate ' + effWin.toFixed(1) + '% is below expectation — no advantage play signs.');
+    }else{
+      add('success', 'Win rate ' + effWin.toFixed(1) + '% is within the expected range.');
+    }
+  }
+
+  // ---- 2. Session result ----
+  if(TotalNet > 0){
+    let lvl = (effWin >= 55 && decided >= 20) ? 'danger' : 'warning';
+    add(lvl, '<b>Player finished in profit:</b> +' + eur(TotalNet) + ' (margin +' + Margin.toFixed(2) + '%).');
+  }
+
+  // ---- 3. Betting strategy (manual §5.5: Flat / Negative & Martingale are
+  //         normal; erratic play and Bet Ramps are red flags) ----
+  let samePct   = pct(same, rounds);
+  let negPct    = pct(negativ + martingeil, rounds);
+  let upPct     = pct(up, rounds);
+  let chaosPct  = pct(chaotic, rounds);
+
+  if(rounds >= 5 && maxRound && avgBet > 0 && maxRound.TotalRoundBet >= 3 * avgBet){
+    add('warning', '<b>Bet ramp:</b> sudden sharp bet increase up to ' + eur(maxRound.TotalRoundBet) +
+        ' (' + (maxRound.TotalRoundBet / avgBet).toFixed(1) + '× the average, round ' + maxRound.RoundId +
+        ') — may indicate advantage play.');
+  }
+  if(rounds >= 15 && chaosPct >= 60){
+    add('warning', '<b>Erratic strategy:</b> bet sizing looks random in ' + chaosPct.toFixed(0) +
+        '% of rounds — could indicate testing, scripting or manipulation.');
+  }
+  if(samePct >= 70){
+    add('success', 'Flat betting throughout the session — consistent with normal play.');
+  }
+  if(negPct >= 30){
+    add('info', 'Negative progression (Martingale-style raise after losses) in ' + negPct.toFixed(0) +
+        '% of rounds — acceptable for roulette if other indicators are clean.');
+  }
+  if(upPct >= 50){
+    add('info', 'Positive progression (raises after wins) in ' + upPct.toFixed(0) + '% of rounds.');
+  }
+
+  // ---- 4. Round skipping (manual: "frequently skips game rounds, possibly
+  //         waiting for favorable conditions") ----
+  let skipPct = pct(RoundSkipp, rounds);
+  if(skipPct >= 30){
+    add('danger', '<b>Frequently skips game rounds:</b> ' + RoundSkipp + ' skip(s) (' + skipPct.toFixed(0) +
+        '%) — possibly waiting for favorable conditions.');
+  }else if(skipPct >= 15){
+    add('warning', 'Player skips rounds: ' + RoundSkipp + ' skip(s), ' + skipPct.toFixed(0) + '% of the session.');
+  }
+
+  // ---- 5. Fragmented session (manual: "playing in short bursts with breaks
+  //         between — may suggest strategic timing") ----
+  let breaks = ShortBreak + LongBreak;
+  if(breaks >= 3 && rounds < 30){
+    add('warning', 'Session played in short bursts: ' + breaks + ' break(s) over ' + rounds +
+        ' rounds — may suggest strategic timing.');
+  }
+
+  // ---- 6. Opposite betting (manual §9): opposing positions in one round ----
+  let pairs = [['banker','player'], ['red','black'], ['even','odd'], ['high','low'], ['1-18','19-36'], ['manque','passe']];
+  let roundPos = {};
+  for(let i = 0; i < worksheetData.length; i++){
+    let rid = worksheetData[i][RoundID].formattedValue;
+    let pos = worksheetData[i][BetPosition].formattedValue.toLowerCase();
+    if(!roundPos[rid]){ roundPos[rid] = []; }
+    roundPos[rid].push(pos);
+  }
+  let oppRounds = 0;
+  let oppPair = '';
+  for(let rid in roundPos){
+    for(let p = 0; p < pairs.length; p++){
+      let hasA = roundPos[rid].some(pos => pos.indexOf(pairs[p][0]) !== -1);
+      let hasB = roundPos[rid].some(pos => pos.indexOf(pairs[p][1]) !== -1);
+      if(hasA && hasB){
+        oppRounds++;
+        oppPair = pairs[p][0].charAt(0).toUpperCase() + pairs[p][0].slice(1) + ' / ' +
+                  pairs[p][1].charAt(0).toUpperCase() + pairs[p][1].slice(1);
+        break;
+      }
+    }
+  }
+  if(oppRounds >= 5 || oppRounds >= rounds * 0.25 && oppRounds >= 2){
+    add('danger', '<b>Opposite betting:</b> opposing positions (' + oppPair + ') in ' + oppRounds +
+        ' round(s) — possible balance laundering / bonus abuse.');
+  }else if(oppRounds >= 2){
+    add('warning', 'Opposite betting: both sides (' + oppPair + ') covered in ' + oppRounds + ' round(s).');
+  }
+
+  // ---- 7. Dealer analysis (manual: Dealer Report guidelines) ----
+  if(rounds >= 15 && DealerArry.length > 1){
+    // 7a. Wins concentrated on a single dealer while losing with others
+    let topNet = DealerArry[0];
+    for(let i = 1; i < DealerArry.length; i++){
+      if(DealerArry[i].TotalNet > topNet.TotalNet){ topNet = DealerArry[i]; }
+    }
+    let othersLosing = 0;
+    for(let i = 0; i < DealerArry.length; i++){
+      if(DealerArry[i].DealerName !== topNet.DealerName && DealerArry[i].TotalNet < 0){ othersLosing++; }
+    }
+    if(topNet.TotalNet > 0 && othersLosing >= DealerArry.length - 1 && DealerArry.length >= 3){
+      add(effWin >= 55 ? 'danger' : 'warning',
+          '<b>Dealer pattern:</b> player profits only with dealer ' + topNet.DealerName + ' (+' + eur(topNet.TotalNet) +
+          '), losing with all other dealers — prioritize video review (possible predictability or collusion).');
+    }
+    // 7b. Single dealer coverage with profit
+    let topCnt = DealerArry[0];
+    for(let i = 1; i < DealerArry.length; i++){
+      if(DealerArry[i].RoundCount > topCnt.RoundCount){ topCnt = DealerArry[i]; }
+    }
+    let share = pct(topCnt.RoundCount, rounds);
+    if(share >= 50 && topCnt.TotalNet > 0 && DealerArry.length < 3){
+      add('warning', '<b>Dealer concentration:</b> ' + share.toFixed(0) + '% of rounds with dealer ' +
+          topCnt.DealerName + ', player net +' + eur(topCnt.TotalNet) + ' with them.');
+    }
+    // 7c. Frequent dealer switching (manual: "plays only 1-2 hands per dealer")
+    if(rounds / DealerArry.length <= 2.5 && DealerArry.length >= 6){
+      add('warning', '<b>Frequent dealer switching:</b> ' + DealerArry.length + ' dealers over ' + rounds +
+          ' rounds (~' + (rounds / DealerArry.length).toFixed(1) + ' rounds each) — possible detection avoidance.');
+    }
+    // 7d. Sharp margin swings between dealers (manual: "+100% to -150%")
+    let dMin = null, dMax = null;
+    for(let i = 0; i < DealerArry.length; i++){
+      let d = DealerArry[i];
+      if(d.RoundCount < 3 || d.TotalBet < 500){ continue; }
+      let m = d.TotalNet / d.TotalBet * 100;
+      if(dMin === null || m < dMin.m){ dMin = {d: d, m: m}; }
+      if(dMax === null || m > dMax.m){ dMax = {d: d, m: m}; }
+    }
+    if(dMin && dMax && dMax.m - dMin.m > 150){
+      add('warning', '<b>Sharp margin swings between dealers:</b> ' + dMax.d.DealerName + ' (+' + dMax.m.toFixed(0) +
+          '%) vs ' + dMin.d.DealerName + ' (' + dMin.m.toFixed(0) + '%) — statistical outlier per Dealer Report criteria.');
+    }
+  }
+
+  // ---- 8. Sample size ----
+  if(rounds < 15){
+    add('info', 'Small sample: only ' + rounds + ' round(s) — conclusions are unreliable.');
+  }
+
+  // ---- Summary bullet (always first) ----
+  let dangerCnt = findings.filter(f => f.level === 'danger').length;
+  let warnCnt   = findings.filter(f => f.level === 'warning').length;
+  if(dangerCnt > 0){
+    findings.unshift({level: 'danger', text: '<b>' + dangerCnt + ' red flag(s) detected</b> — manual review recommended: check game logs, CCTV and dealer footage per Incident Response flow.'});
+  }else if(warnCnt > 0){
+    findings.unshift({level: 'warning', text: 'No direct fraud indicators, but ' + warnCnt + ' point(s) need attention.'});
+  }else{
+    findings.unshift({level: 'success', text: 'No unusual patterns detected in this session — gameplay corresponds to normal indicators from the monitoring checklist.'});
+  }
+
+  // ---- Render: danger > warning > info > success ----
+  let weight = {danger: 0, warning: 1, info: 2, success: 3};
+  let icons  = {danger: 'bi-exclamation-octagon-fill', warning: 'bi-exclamation-triangle-fill',
+                info: 'bi-info-circle-fill', success: 'bi-check-circle-fill'};
+
+  findings.sort(function(a, b){ return weight[a.level] - weight[b.level]; });
+
+  for(let i = 0; i < findings.length; i++){
+    $list.append('<li class="finding-' + findings[i].level + '">' +
+                 '<i class="bi ' + icons[findings[i].level] + '"></i>' +
+                 '<span>' + findings[i].text + '</span></li>');
+  }
+}
+
+generateFindings();
+
+// ========================= END KEY FINDINGS =========================
 
   $("#bar-chart").remove();
 

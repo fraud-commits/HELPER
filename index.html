@@ -13,7 +13,13 @@
 <body>
     <div class="main-content col-container">
 
-        <div class="row">
+        <div id="empty-state" style="display:none;">
+            <i class="bi bi-person-plus"></i>
+            <h4>Add Player ID</h4>
+            <p>Enter a Player Id in the parameter field above<br>to run the gameplay analysis.</p>
+        </div>
+
+        <div class="row" id="dashboard-content">
 
             <div class="row">
                 <div class="col-md-3 col">
@@ -23,9 +29,9 @@
                                 <p class="t-a-c text-muted">Financial data</p>
                                 <div class="col-md-6">
                                     <p class="m-b-0 text-muted">Bet</p>
-                                    <h2 class="m-b-0 Totalbet">$23,523</h2>
+                                    <h2 class="m-b-0 Totalbet">—</h2>
                                     <p class="m-b-0 text-muted">Net</p>
-                                    <h2 class="m-b-0 Totalnet">$23,523</h2>
+                                    <h2 class="m-b-0 Totalnet">—</h2>
                                 </div>
                                 <div class="m-t-2">
                                     <div class="d-flex justify-content-between m-b">
@@ -34,12 +40,12 @@
                                             <span class="text-gray font-weight-semibold font-size-13">Session
                                                 margin</span>
                                         </div>
-                                        <span class="text-dark font-weight-semibold font-size-13 Margin">70% </span>
+                                        <span class="text-dark font-weight-semibold font-size-13 Margin">— </span>
                                     </div>
                                 </div>
                             </div>
                             <div class="progress">
-                                <div class="progress-bar margin-bar" role="progressbar" style="width: 100%"
+                                <div class="progress-bar margin-bar" role="progressbar" style="width: 0%"
                                     aria-valuenow="25" aria-valuemin="0" aria-valuemax="100"></div>
                             </div>
                         </div>
@@ -52,15 +58,15 @@
                                 <p class="t-a-c text-muted">Game Statistics</p>
                                 <div class="col-md-6">
                                     <p class="m-b-0 text-muted">Total Rounds</p>
-                                    <h2 class="m-b-0 total-round-cnt">1,753</h2>
+                                    <h2 class="m-b-0 total-round-cnt">—</h2>
                                     <p class="m-b-0 text-muted ">Tie rounds</p>
-                                    <h2 class="m-b-0 tie-round-cnt">1.4</h2>
+                                    <h2 class="m-b-0 tie-round-cnt">—</h2>
                                 </div>
                                 <div class="col-md-6">
                                     <p class="m-b-0 text-muted">Win rounds</p>
-                                    <h2 class="m-b-0 win-round-cnt">753</h2>
+                                    <h2 class="m-b-0 win-round-cnt">—</h2>
                                     <p class="m-b-0 text-muted">Loss rounds</p>
-                                    <h2 class="m-b-0 loss-round-cnt">47</h2>
+                                    <h2 class="m-b-0 loss-round-cnt">—</h2>
                                 </div>
                                 <div class="m-t-2">
                                     <div class="d-flex justify-content-between m-b">
@@ -69,13 +75,13 @@
                                             <span class="text-gray font-weight-semibold font-size-13">Win
                                                 percentage</span>
                                         </div>
-                                        <span class="text-dark font-weight-semibold font-size-13 WinProcent">70% </span>
+                                        <span class="text-dark font-weight-semibold font-size-13 WinProcent">— </span>
                                     </div>
                                 </div>
                             </div>
                             <div class="progress">
                                 <div class="progress-bar progress-bar bg-success WinProcent-bar" role="progressbar"
-                                    style="width: 25%" aria-valuenow="25" aria-valuemin="0" aria-valuemax="100"></div>
+                                    style="width: 0%" aria-valuenow="25" aria-valuemin="0" aria-valuemax="100"></div>
                             </div>
                         </div>
                     </div>
@@ -94,23 +100,37 @@
             <div class="row">
                 <div class="col-12">
                     <div class="card">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <h5 class="findings-title">Key findings
+                                    <span class="findings-note">automated checks based on the Risk Analyst Manual monitoring checklists</span>
+                                </h5>
+                            </div>
+                            <ul class="findings-list"></ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="row">
+                <div class="col-12">
+                    <div class="card">
                         <div class="card-body ">
                             <div class="row">
                                 <div class="col-3 ">
                                     <p class="in-line text-muted">Betting progression : </p>
-                                    <p class="in-line highlight-h bettingProgression">Mainly chaotic</p>
+                                    <p class="in-line highlight-h bettingProgression">—</p>
                                 </div>
                                 <div class="col-3">
                                     <p class="in-line text-muted">Bet continuty : </p>
-                                    <p class="Betcontinuty in-line highlight-h">Mainly Sequential</p>
+                                    <p class="Betcontinuty in-line highlight-h">—</p>
                                 </div>
                                 <div class="col-3">
                                     <p class="in-line text-muted">Breaks during analysis : </p>
-                                    <p class="Betcontinuty2 in-line highlight-h">Several long and short Breaks</p>
+                                    <p class="Betcontinuty2 in-line highlight-h">—</p>
                                 </div>
                                 <div class="col-3">
                                     <p class="in-line text-muted" >Fraud analysis : </p>
-                                    <p class="Fraud in-line highlight-h">Fraud pattern not detected</p>
+                                    <p class="Fraud in-line highlight-h">—</p>
                                 </div>
                         </div>
                         </div>
@@ -131,28 +151,28 @@
                                     <div class="pr-4 m-v-10 border-right border-hide-md">
                                         <p class="m-b-0">Sequential</p>
                                         <h3 class="m-b-0">
-                                            <span class="seqcnt">33</span>
+                                            <span class="seqcnt">0</span>
                                             <span class="badge-sqr badge-sql-c badge-sqr m-r-10"></span>
                                         </h3>
                                     </div>
                                     <div class="px-md-4 m-v-10 border-right border-hide-md">
                                         <p class="m-b-0">Skip</p>
                                         <h3 class="m-b-0">
-                                            <span class="skipcnt">8</span>
+                                            <span class="skipcnt">0</span>
                                             <span class="skip-r badge-sqr badge-sqr m-r-10 badge-skip-c"></span>
                                         </h3>
                                     </div>
                                     <div class="px-md-4 m-v-10">
                                         <p class="m-b-0">Short</p>
                                         <h3 class="m-b-0">
-                                            <span class="shortcnt">2</span>
+                                            <span class="shortcnt">0</span>
                                             <span class="shor-r badge-sqr badge-sqr badge-short-c"></span>
                                         </h3>
                                     </div>
                                     <div class="px-md-4 m-v-10">
                                         <p class="m-b-0">Long</p>
                                         <h3 class="m-b-0">
-                                            <span class="longcnt">4</span>
+                                            <span class="longcnt">0</span>
                                             <span class="long-r badge-sqr badge-sqr badge-long-c"></span>
                                         </h3>
                                     </div>
