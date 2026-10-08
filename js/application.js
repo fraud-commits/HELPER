@@ -189,10 +189,12 @@ Trigger();
   }
 
   $('.Totalbet').text("€ " + TotalBet.toLocaleString('en-US', {
-    minimumFractionDigits: 2
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2
   }));
   $('.Totalnet').text("€ " + TotalNet.toLocaleString('en-US', {
-    minimumFractionDigits: 2
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2
   })).toggleClass('neg-val', TotalNet < 0);
   $('.Margin').text(Margin.toFixed(2) + "%").toggleClass('neg-val', Margin < 0);
   $('.margin-bar').css('width', Margin.toFixed(2) + "%");
