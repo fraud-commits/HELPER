@@ -276,38 +276,75 @@ margin: 1px;
     background-color: #304c85 !important;
   }
 
-  /* --- hover tooltip for heat-map squares (between which rounds the gap was) --- */
+  /* --- gap tooltip: hover to peek, click square to fix, click an id to copy --- */
   .hmap-tip{
-    position: relative;
-    cursor: help;
+    cursor: pointer;
   }
 
-  .hmap-tip:hover{
-    z-index: 60;
+  .hmap-tip.gap-tip-pinned{
     box-shadow: 0 0 0 2px #2a2a2a;
   }
 
-  .hmap-tip:hover::after{
-    content: attr(data-tip);
+  .gap-tip{
     position: absolute;
-    bottom: calc(100% + 6px);
-    left: 50%;
-    transform: translateX(-50%);
+    display: none;
     background: #2a2a2a;
     color: #ffffff;
+    padding: 6px 9px;
+    border-radius: 4px;
     font-size: 11px;
     font-weight: 500;
-    line-height: 1.45;
+    line-height: 1.5;
     letter-spacing: 0;
     text-align: left;
-    padding: 5px 8px;
-    border-radius: 4px;
-    white-space: pre-line;
-    width: max-content;
     max-width: 320px;
-    z-index: 60;
-    pointer-events: none;
+    z-index: 70;
     box-shadow: 0 3px 10px rgba(0,0,0,.3);
+  }
+
+  .gap-tip.show{
+    display: block;
+  }
+
+  .gap-tip-ids{
+    white-space: nowrap;
+  }
+
+  .gap-arrow{
+    opacity: .75;
+    padding: 0 2px;
+  }
+
+  .gap-copy{
+    background: none;
+    border: 0;
+    padding: 0;
+    margin: 0;
+    color: #ffd479;
+    font: inherit;
+    cursor: pointer;
+    text-decoration: underline;
+    text-underline-offset: 2px;
+  }
+
+  .gap-copy:hover{
+    color: #ffffff;
+  }
+
+  .gap-copy.copied{
+    color: #81F495;
+    text-decoration: none;
+  }
+
+  .gap-tip-meta{
+    opacity: .9;
+  }
+
+  .gap-tip-hint{
+    margin-top: 3px;
+    font-size: 10px;
+    font-weight: 400;
+    opacity: .55;
   }
 
   .avatar {

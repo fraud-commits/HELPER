@@ -373,7 +373,137 @@ function fmtGap(mins){
   return mins.toFixed(1) + ' min';
 }
 
+// ================== GAP TOOLTIP (Break pattern heat map) ==================
+// hover = peek · click square = fix (pin) · click a round id = copy it
+let $gapTip = null, gapTipPinned = null, gapHideTimer = null;
+
+function gapTipEnsure(){
+  if(!$gapTip || !$gapTip.length){
+    $gapTip = $('<div class="gap-tip" id="gap-tip"></div>');
+    $('body').append($gapTip);
+  }
+  return $gapTip;
+}
+
+function gapTipShow(el){
+  let $el = $(el);
+  let tip = gapTipEnsure();
+  let from = $el.attr('data-from') || '';
+  let to = $el.attr('data-to') || '';
+  let meta = $el.attr('data-meta') || '';
+  let ids = '';
+  if(from){ ids += '<button type="button" class="gap-copy" data-round="' + from + '">' + from + '</button>'; }
+  if(to){ ids += ' <span class="gap-arrow">→</span> <button type="button" class="gap-copy" data-round="' + to + '">' + to + '</button>'; }
+  tip.html(
+    '<div class="gap-tip-ids">' + ids + '</div>' +
+    '<div class="gap-tip-meta">' + meta + '</div>' +
+    '<div class="gap-tip-hint">click a round id to copy · click the square to fix</div>'
+  );
+  tip.addClass('show');
+  gapTipPosition(el);
+}
+
+function gapTipPosition(el){
+  if(!$gapTip){ return; }
+  let rect = el.getBoundingClientRect();
+  let scrollL = window.pageXOffset || document.documentElement.scrollLeft || 0;
+  let scrollT = window.pageYOffset || document.documentElement.scrollTop || 0;
+  let w = $gapTip[0].offsetWidth;
+  let h = $gapTip[0].offsetHeight;
+  let vw = document.documentElement.clientWidth;
+
+  // keep the tooltip inside the dashboard borders
+  let maxLeft = vw - w - 8;
+  if(maxLeft < 8){ maxLeft = 8; }
+  let left = rect.left + scrollL + rect.width / 2 - w / 2;
+  if(left < 8){ left = 8; }
+  if(left > maxLeft){ left = maxLeft; }
+
+  // above the square, below it when there is no space on top
+  let top = rect.top + scrollT - h - 8;
+  if(rect.top - h - 8 < 0){ top = rect.bottom + scrollT + 8; }
+
+  $gapTip.css({ left: left + 'px', top: top + 'px' });
+}
+
+function gapTipHide(force){
+  if(!force && gapTipPinned){ return; } // pinned tooltip stays until clicked away
+  if($gapTip){ $gapTip.removeClass('show'); }
+}
+
+function gapTipScheduleHide(){
+  clearTimeout(gapHideTimer);
+  gapHideTimer = setTimeout(function(){ gapTipHide(false); }, 160);
+}
+
+function gapTipCancelHide(){ clearTimeout(gapHideTimer); }
+
+function gapTipUnpin(){
+  gapTipPinned = null;
+  $('.hmap-tip.gap-tip-pinned').removeClass('gap-tip-pinned');
+}
+
+$(document)
+  .off('mouseenter.gaptip', '.hmap-tip')
+  .on('mouseenter.gaptip', '.hmap-tip', function(){
+    if(gapTipPinned){ return; }
+    gapTipCancelHide();
+    gapTipShow(this);
+  })
+  .off('mouseleave.gaptip', '.hmap-tip')
+  .on('mouseleave.gaptip', '.hmap-tip', gapTipScheduleHide)
+  .off('click.gaptip', '.hmap-tip')
+  .on('click.gaptip', '.hmap-tip', function(e){
+    e.stopPropagation();
+    if(gapTipPinned === this){ // second click unfixed
+      gapTipUnpin();
+      gapTipHide(true);
+      return;
+    }
+    gapTipUnpin();
+    gapTipPinned = this;
+    $(this).addClass('gap-tip-pinned');
+    gapTipCancelHide();
+    gapTipShow(this);
+  })
+  .off('mouseenter.gaptip', '#gap-tip')
+  .on('mouseenter.gaptip', '#gap-tip', gapTipCancelHide)
+  .off('mouseleave.gaptip', '#gap-tip')
+  .on('mouseleave.gaptip', '#gap-tip', gapTipScheduleHide)
+  .off('click.gaptip', '#gap-tip')
+  .on('click.gaptip', '#gap-tip', function(e){ e.stopPropagation(); })
+  .off('click.gaptip-out')
+  .on('click.gaptip-out', function(){ // click anywhere else unfixed
+    if(gapTipPinned){ gapTipUnpin(); gapTipHide(true); }
+  })
+  .off('click.gapcopy', '.gap-copy')
+  .on('click.gapcopy', '.gap-copy', function(e){
+    e.stopPropagation();
+    let txt = $(this).attr('data-round') || '';
+    let $btn = $(this);
+    function done(){
+      $btn.addClass('copied');
+      setTimeout(function(){ $btn.removeClass('copied'); }, 1000);
+    }
+    function fallback(){
+      let ta = document.createElement('textarea');
+      ta.value = txt;
+      document.body.appendChild(ta);
+      ta.select();
+      try{ document.execCommand('copy'); done(); }catch(err){}
+      document.body.removeChild(ta);
+    }
+    if(navigator.clipboard && navigator.clipboard.writeText){
+      navigator.clipboard.writeText(txt).then(done, fallback);
+    }else{
+      fallback();
+    }
+  });
+
 function BreakCounter(){
+
+  gapTipUnpin();   // data refresh: drop a stale fixed tooltip
+  gapTipHide(true);
 
   // --- sort a copy of rounds by timestamp (data order is not guaranteed) ---
   let sorted = RoundArry.slice().map(function(r){
@@ -398,7 +528,7 @@ function BreakCounter(){
     if(prevValid === null){
       // first played round of the session
       SequentialGame += 1;
-      $('.break-Heat-Map').append('<div class="badge-sqr badge-sql-c hmap-tip" data-tip="' + sorted[i].r.RoundId + '\nfirst round of the session"></div>');
+      $('.break-Heat-Map').append('<div class="badge-sqr badge-sql-c hmap-tip" data-from="' + sorted[i].r.RoundId + '" data-meta="first round of the session"></div>');
       prevValid = sorted[i];
       continue;
     }
@@ -432,11 +562,10 @@ function BreakCounter(){
       prevRound: prevValid.r.RoundId
     };
 
-    // hover tooltip on the heat-map square: between which rounds the gap is
-    let gapTip = prevValid.r.RoundId + ' → ' + sorted[i].r.RoundId + '\n'
-               + fmtGap(gap) + ' · ' + gapType
-               + (gapEst > 0 ? ' (~' + gapEst + ' rounds missed)' : '');
-    $('.break-Heat-Map').append('<div class="badge-sqr ' + gapClass + ' hmap-tip" data-tip="' + gapTip.replace(/"/g, '&quot;') + '"></div>');
+    // tooltip data for the heat-map square: between which rounds the gap is
+    let gapMeta = fmtGap(gap) + ' · ' + gapType
+                + (gapEst > 0 ? ' (~' + gapEst + ' rounds missed)' : '');
+    $('.break-Heat-Map').append('<div class="badge-sqr ' + gapClass + ' hmap-tip" data-from="' + prevValid.r.RoundId + '" data-to="' + sorted[i].r.RoundId + '" data-meta="' + gapMeta.replace(/"/g, '&quot;') + '"></div>');
 
     prevValid = sorted[i];
   }
