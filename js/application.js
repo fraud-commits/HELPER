@@ -94,6 +94,7 @@ function drawChartJS() {
      $(".GameTypeTop").empty();
      $(".RoundTop").empty();
      $(".BetPosTop").empty();
+     chartTipHide();
      if ($.fn.DataTable.isDataTable('.table-dealer')) { $('.table-dealer').DataTable().clear().destroy(); }
      if ($.fn.DataTable.isDataTable('.table-table'))  { $('.table-table').DataTable().clear().destroy(); }
      if ($.fn.DataTable.isDataTable('.table-game'))   { $('.table-game').DataTable().clear().destroy(); }
@@ -560,7 +561,7 @@ $(document)
     e.stopPropagation();
     let $span = $(this);
     let txt = $span.attr('data-round') || $span.text();
-    function setHint(t){ $('#gap-tip .gap-tip-hint').text(t); }
+    function setHint(t){ $span.closest('.gap-tip').find('.gap-tip-hint').text(t); }
     function ok(){
       $span.addClass('copied');
       setHint('copied to clipboard ✓');
@@ -1753,6 +1754,14 @@ betChart = new Chart(document.getElementById("bar-chart"), {
         ]
     },
     options: {
+        onClick: function(evt, elements){
+          if(!elements || !elements.length){ chartTipHide(); return; }
+          let r = RoundArry[elements[0].index];
+          if(!r){ return; }
+          let native = (evt && evt.native) || {};
+          if(native.stopPropagation){ native.stopPropagation(); } // keep the document click-away handler from closing it instantly
+          chartTipShow(native.clientX || 0, native.clientY || 0, r);
+        },
         responsive: true,
         maintainAspectRatio: false,
         scales: {
@@ -1797,15 +1806,59 @@ betChart = new Chart(document.getElementById("bar-chart"), {
 }
 } // end renderBetChart
 
-// Bet / Net chart mode switcher (ChartMode declared above, before first render)
-$(document).off('click.chartmode', '.chart-switch').on('click.chartmode', '.chart-switch', function(){
-  ChartMode = $(this).data('chart') || 'bet';
-  console.log('[helper] chart mode ->', ChartMode);
-  $('.chart-switch').removeClass('active');
-  $(this).addClass('active');
+// Bet / Net chart mode toggler (ChartMode declared above, before first render)
+function setChartMode(mode){
+  ChartMode = (mode === 'net') ? 'net' : 'bet';
+  let isNet = ChartMode === 'net';
+  $('.ct-opt').removeClass('ct-active');
+  $('.ct-opt[data-chart="' + ChartMode + '"]').addClass('ct-active');
+  $('.ct-switch').toggleClass('ct-on', isNet).toggleClass('ct-off', !isNet)
+    .attr('aria-checked', isNet ? 'true' : 'false');
+  chartTipHide();
   $('#bar-chart').remove();
   $('.roulette-container').append('<canvas id="bar-chart" style="height: 168px;" ></canvas>');
   renderBetChart();
+}
+$(document).off('click.chartmode', '.ct-opt').on('click.chartmode', '.ct-opt', function(){
+  setChartMode($(this).data('chart'));
+});
+$(document).off('click.chartmode-sw', '.ct-switch').on('click.chartmode-sw', '.ct-switch', function(){
+  setChartMode(ChartMode === 'net' ? 'bet' : 'net');
+});
+
+// Click a chart bar -> fixed DOM tooltip with a selectable Round ID
+// (canvas tooltips cannot be selected; same copy pattern as the break heat-map:
+// select with the mouse, right-click -> Copy — Tableau blocks the clipboard API).
+let $chartTip = null;
+function chartTipEnsure(){
+  if(!$chartTip || !$chartTip.length){
+    $chartTip = $('<div class="gap-tip chart-tip" id="chart-tip"></div>');
+    $('body').append($chartTip);
+  }
+  return $chartTip;
+}
+function chartTipShow(clientX, clientY, round){
+  let tip = chartTipEnsure();
+  tip.html(
+    '<div class="gap-tip-ids">Round <span class="gap-copy" data-round="' + String(round.RoundId).replace(/"/g, '&quot;') + '">' + round.RoundId + '</span></div>' +
+    '<div class="gap-tip-meta">Bet &euro;' + round.TotalRoundBet.toFixed(2) + ' &middot; Net &euro;' + round.TotalRoundNet.toFixed(2) + '</div>' +
+    '<div class="gap-tip-hint">select the id with the mouse, right-click &rarr; Copy &middot; click elsewhere to close</div>'
+  );
+  tip.addClass('show');
+  let w = tip[0].offsetWidth, h = tip[0].offsetHeight;
+  let vw = document.documentElement.clientWidth;
+  let left = clientX + 12, top = clientY - h - 12;
+  if(left + w > vw - 8){ left = clientX - w - 12; }
+  if(left < 8){ left = 8; }
+  if(top < 8){ top = clientY + 16; }
+  tip.css({left: (left + (window.pageXOffset || 0)) + 'px', top: (top + (window.pageYOffset || 0)) + 'px'});
+}
+function chartTipHide(){
+  if($chartTip){ $chartTip.removeClass('show'); }
+}
+$(document).off('click.charttip-out').on('click.charttip-out', function(e){
+  if($(e.target).closest('#chart-tip').length){ return; }
+  chartTipHide();
 });
 
 
