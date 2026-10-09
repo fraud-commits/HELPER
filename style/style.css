@@ -660,6 +660,16 @@ color: #e63757 !important;
   color: #fff;
   border-color: #043927;
 }
+.dim-switch:hover{
+  background: #e6f6f2;
+  color: #043927;
+  border-color: #043927;
+}
+.dim-switch.active:hover{
+  background: #043927;
+  color: #fff;
+  border-color: #043927;
+}
 
 /* chart mode toggler (Bet / Net) — brand greens */
 .ct-toggle{ display: inline-flex; align-items: center; gap: 8px; }
