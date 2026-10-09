@@ -1825,6 +1825,46 @@ $(document).off('change.dashgame', '#dash-game-filter').on('change.dashgame', '#
   drawChartJS();
 });
 
+// One-click report copy: TSV pastes straight into Excel (columns).
+// Where the clipboard API is blocked (Tableau Desktop), fall back to a
+// manual overlay with the text pre-selected for mouse-select + right-click Copy.
+function buildReportTSV(){
+  function cell(v){ return String(v === undefined || v === null ? '' : v).replace(/[\t\n\r]+/g, ' '); }
+  let lines = ['Section\tField\tValue\tDetails'];
+  let player = ($('.PlayerId').text() || '').trim();
+  let oper = ($('.OperatorId').text() || '').trim();
+  if(player || oper){ lines.push(['Player', player + (oper ? ' @ ' + oper : ''), '', ''].map(cell).join('\t')); }
+  for(let i = 0; i < lastWinnerAnswers.length; i++){
+    let a = lastWinnerAnswers[i];
+    lines.push([a.group || '', a.field || '', a.value || '', a.why || a.note || ''].map(cell).join('\t'));
+  }
+  return lines.join('\n');
+}
+$(document).off('click.reportcopy', '#report-copy').on('click.reportcopy', '#report-copy', function(){
+  let tsv = buildReportTSV();
+  let btn = $(this);
+  function done(){
+    btn.find('i').attr('class', 'bi bi-check');
+    setTimeout(function(){ btn.find('i').attr('class', 'bi bi-clipboard'); }, 1500);
+  }
+  function showManual(){
+    $('#report-text').val(tsv);
+    $('#report-overlay').show();
+    try{ $('#report-text')[0].focus(); $('#report-text')[0].select(); }catch(e){}
+  }
+  if(navigator.clipboard && navigator.clipboard.writeText){
+    navigator.clipboard.writeText(tsv).then(done, showManual);
+  }else{
+    showManual();
+  }
+});
+$(document).off('click.reportclose', '.report-close').on('click.reportclose', '.report-close', function(){
+  $('#report-overlay').hide();
+});
+$(document).off('click.reportout', '#report-overlay').on('click.reportout', '#report-overlay', function(e){
+  if(e.target === this){ $(this).hide(); }
+});
+
 // ================== END WINNER REPORT SUGGESTIONS ===================
 
 // chart mode must be declared BEFORE the first renderBetChart() call below
