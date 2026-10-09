@@ -1383,6 +1383,7 @@ function analyzeBot(){
 // computes the numeric report fields, so the analyst can copy them 1:1.
 
 let lastWinnerAnswers = [];
+let FinGameFilter = '__all'; // game-type scope of the Financial analysis card ('__all' or a GameType)
 
 // ---- Opposite betting (silent check, only on games where it can occur) ----
 // Applicable only if the session contains bet positions that belong to a known
@@ -1525,27 +1526,41 @@ function computeWinnerAnswers(){
         : 'no same-round opposing bets by this player in ' + rounds + ' rounds; cross-account check (IP report) still required'});
   }
 
-  // ---------- Wager statistics ----------
+  // ---------- Wager statistics (scoped by the Game filter; dropdowns above stay global) ----------
+  let scope = (typeof FinGameFilter === 'string' && FinGameFilter !== '__all')
+    ? RoundArry.filter(function(r){ return (r.GameType || 'Unknown') === FinGameFilter; })
+    : RoundArry;
+  let sRounds = scope.length;
+  let sTotalBet = 0, sTotalNet = 0, sWin = 0, sLoss = 0, sTie = 0;
+  for(let si = 0; si < sRounds; si++){
+    sTotalBet += scope[si].TotalRoundBet;
+    sTotalNet += scope[si].TotalRoundNet;
+    if(scope[si].TotalRoundNet > 0){ sWin++; }
+    else if(scope[si].TotalRoundNet < 0){ sLoss++; }
+    else{ sTie++; }
+  }
+  let sAvgBet = sRounds > 0 ? sTotalBet / sRounds : 0;
+
   let maxWager = 0, minWager = null;
   let winNets = [];
-  for(let i = 0; i < rounds; i++){
-    let b = RoundArry[i].TotalRoundBet;
+  for(let i = 0; i < sRounds; i++){
+    let b = scope[i].TotalRoundBet;
     if(b > maxWager){ maxWager = b; }
     if(minWager === null || b < minWager){ minWager = b; }
-    if(RoundArry[i].TotalRoundNet > 0){ winNets.push(RoundArry[i].TotalRoundNet); }
+    if(scope[i].TotalRoundNet > 0){ winNets.push(scope[i].TotalRoundNet); }
   }
   if(minWager === null){ minWager = 0; }
 
   // "In how many rounds" column of the report
   let maxWagerRounds = 0, minWagerRounds = 0;
-  for(let i = 0; i < rounds; i++){
-    if(RoundArry[i].TotalRoundBet === maxWager){ maxWagerRounds++; }
-    if(RoundArry[i].TotalRoundBet === minWager){ minWagerRounds++; }
+  for(let i = 0; i < sRounds; i++){
+    if(scope[i].TotalRoundBet === maxWager){ maxWagerRounds++; }
+    if(scope[i].TotalRoundBet === minWager){ minWagerRounds++; }
   }
 
   answers.push({group: 'Wager statistics', field: 'Maximum round wager', value: eur(maxWager), note: 'in ' + maxWagerRounds + (maxWagerRounds === 1 ? ' round' : ' rounds')});
   answers.push({group: 'Wager statistics', field: 'Minimum round wager', value: eur(minWager), note: 'in ' + minWagerRounds + (minWagerRounds === 1 ? ' round' : ' rounds')});
-  answers.push({group: 'Wager statistics', field: 'Average round wager', value: eur(avgBetSafe())});
+  answers.push({group: 'Wager statistics', field: 'Average round wager', value: eur(sAvgBet)});
 
   // ---------- Winning statistics ----------
   let maxW = 0, minW = null, sumW = 0;
@@ -1566,14 +1581,14 @@ function computeWinnerAnswers(){
   answers.push({group: 'Winning statistics', field: 'Minimum round winning', value: eur(minW), note: 'in ' + minWCount + (minWCount === 1 ? ' round' : ' rounds')});
   answers.push({group: 'Winning statistics', field: 'Average round winning', value: eur(winNets.length > 0 ? sumW / winNets.length : 0)});
   answers.push({group: 'Winning statistics', field: 'Average round result',
-                value: (rounds > 0 && TotalNet >= 0 ? '+' : (rounds > 0 ? '-' : '')) + eur(rounds > 0 ? TotalNet / rounds : 0),
-                neg: rounds > 0 && TotalNet < 0});
+                value: (sRounds > 0 && sTotalNet >= 0 ? '+' : (sRounds > 0 ? '-' : '')) + eur(sRounds > 0 ? sTotalNet / sRounds : 0),
+                neg: sRounds > 0 && sTotalNet < 0});
 
   // ---------- Rounds ----------
-  let pct = function(v){ return rounds > 0 ? (v / rounds * 100).toFixed(2) + ' % of all games' : '—'; };
-  answers.push({group: 'Rounds', field: 'Winning rounds', value: String(WinRoundCnt), note: pct(WinRoundCnt)});
-  answers.push({group: 'Rounds', field: 'Losing rounds',  value: String(LossRoundCnt), note: pct(LossRoundCnt)});
-  answers.push({group: 'Rounds', field: 'Even round',     value: String(TieRoundCnt), note: pct(TieRoundCnt)});
+  let pct = function(v){ return sRounds > 0 ? (v / sRounds * 100).toFixed(2) + ' % of all games' : '—'; };
+  answers.push({group: 'Rounds', field: 'Winning rounds', value: String(sWin), note: pct(sWin)});
+  answers.push({group: 'Rounds', field: 'Losing rounds',  value: String(sLoss), note: pct(sLoss)});
+  answers.push({group: 'Rounds', field: 'Even round',     value: String(sTie), note: pct(sTie)});
 
   return answers;
 }
@@ -1586,6 +1601,24 @@ function renderWinnerAnswers(){
   if(!$list.length && !$stats.length){ return; } // panels are not present (e.g. index2.html)
   $list.empty();
   $stats.empty();
+
+  // Game-type scope of the Financial analysis card (All + distinct game types)
+  let $sel = $('#fin-game-filter');
+  if($sel.length){
+    let games = [];
+    for(let gi = 0; gi < RoundArry.length; gi++){
+      let g = RoundArry[gi].GameType || 'Unknown';
+      if(games.indexOf(g) === -1){ games.push(g); }
+    }
+    games.sort();
+    let html = '<option value="__all">All</option>';
+    for(let gi = 0; gi < games.length; gi++){
+      html += '<option value="' + games[gi].replace(/"/g, '&quot;') + '">' + games[gi] + '</option>';
+    }
+    $sel.html(html);
+    if(games.indexOf(FinGameFilter) === -1){ FinGameFilter = '__all'; }
+    $sel.val(FinGameFilter);
+  }
 
   let answers = computeWinnerAnswers();
   let currentGroup = '';
@@ -1665,6 +1698,11 @@ $(document).off('click', '.ra-copy').on('click', '.ra-copy', function(){
 });
 
 renderWinnerAnswers();
+
+$(document).off('change.fingame', '#fin-game-filter').on('change.fingame', '#fin-game-filter', function(){
+  FinGameFilter = $(this).val() || '__all';
+  renderWinnerAnswers();
+});
 
 // ================== END WINNER REPORT SUGGESTIONS ===================
 
