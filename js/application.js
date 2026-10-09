@@ -25,6 +25,16 @@ window.addEventListener('unhandledrejection', function(e){
 });
 function fail(msg){ throw new Error(msg); }
 
+// theme token reader (CSS variables in style.css); chart follows a future
+// dark theme automatically, falls back to light values if unavailable
+function themeVar(name, fallback){
+  try{
+    let v = getComputedStyle(document.documentElement).getPropertyValue(name);
+    v = v ? v.trim() : '';
+    return v || fallback;
+  }catch(e){ return fallback; }
+}
+
 // Watchdog: if Tableau never answers with data (blocked extension, missing
 // sheet, unset filters), say so instead of leaving eternal zeros/dashes.
 let booted = false;
@@ -1814,7 +1824,7 @@ betChart = new Chart(document.getElementById("bar-chart"), {
                 barPercentage: 0.9,
                 categoryPercentage: 1,
                 label: chartLabel,
-                backgroundColor: RoundArry.map(a => a.TotalRoundNet > 0 ? "#81F495" : "#F07D88"), // Green if positive, Red if negative
+                backgroundColor: RoundArry.map(a => a.TotalRoundNet > 0 ? themeVar('--chart-win', '#81F495') : themeVar('--chart-loss', '#F07D88')), // Green if positive, Red if negative
                 data: chartData
             }
         ]
