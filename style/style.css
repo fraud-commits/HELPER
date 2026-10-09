@@ -566,6 +566,11 @@ th { white-space: nowrap; }
 .finding-success { border-left-color: #00c9a7; background: #e9faf6; }
 .finding-success i { color: #00c9a7; }
 
+/* Negative values in red */
+.neg-val{
+color: #e63757 !important;
+}
+
 @media (max-width: 1200px){
   .findings-list{ column-count: 1; }
 }
