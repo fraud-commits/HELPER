@@ -1030,9 +1030,6 @@ function RoundTop(x){
              + (g.type === 'sequential' ? 'sequential' : g.type + (g.est > 0 ? ' (~' + g.est + ' rounds missed)' : '')) + '"';
   }
 
-  // default order: Net descending
-  RoundArry.sort(function(a, b){ return b.TotalRoundNet - a.TotalRoundNet; });
-
   $(".RoundTop").append(`
   <tr` + gapTitle + `>
     <td>` + RoundArry[x].RoundId + `</td>
