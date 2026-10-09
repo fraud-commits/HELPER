@@ -1253,6 +1253,22 @@ function generateFindings(){
     add(lvl, '<b>Player finished in profit:</b> +' + eur(TotalNet) + ' (margin +' + Margin.toFixed(2) + '%).');
   }
 
+  // ---- 2b. Profit concentration: top-3 wins share of gross winnings (luck vs edge) ----
+  (function(){
+    let gw = [];
+    for(let i = 0; i < rounds; i++){ if(RoundArry[i].TotalRoundNet > 0){ gw.push(RoundArry[i].TotalRoundNet); } }
+    if(gw.length < 3){ return; }
+    gw.sort(function(a, b){ return b - a; });
+    let gsum = 0;
+    for(let i = 0; i < gw.length; i++){ gsum += gw[i]; }
+    let t3 = gw[0] + gw[1] + gw[2];
+    let sh = gsum > 0 ? t3 / gsum * 100 : 0;
+    if(sh >= 50){
+      add('info', '<b>Profit concentrated in a few rounds:</b> top 3 wins (' + eur(t3) + ') make ' +
+          sh.toFixed(0) + '% of all winnings — result depends on isolated rounds, not a stable edge.');
+    }
+  })();
+
   // ---- 3. Betting strategy (manual §5.5: Flat / Negative & Martingale are
   //         normal; erratic play and Bet Ramps are red flags) ----
   // Note: chaotic is session-level (both staking systems mixed), not a transition bucket.
@@ -1647,6 +1663,14 @@ function computeWinnerAnswers(){
   }
   if(minW === null){ minW = 0; }
 
+  // profit concentration: top-3 wins share of gross winnings (luck vs edge)
+  let top3sum = 0, top3share = 0;
+  if(winNets.length > 0){
+    let sw = winNets.slice().sort(function(a, b){ return b - a; });
+    for(let wi = 0; wi < Math.min(3, sw.length); wi++){ top3sum += sw[wi]; }
+    top3share = sumW > 0 ? top3sum / sumW * 100 : 0;
+  }
+
   let maxWCount = 0, minWCount = 0;
   for(let i = 0; i < winNets.length; i++){
     if(winNets[i] === maxW){ maxWCount++; }
@@ -1656,6 +1680,7 @@ function computeWinnerAnswers(){
   answers.push({group: 'Winning statistics', field: 'Maximum round winning', value: eur(maxW), note: 'in ' + maxWCount + (maxWCount === 1 ? ' round' : ' rounds')});
   answers.push({group: 'Winning statistics', field: 'Minimum round winning', value: eur(minW), note: 'in ' + minWCount + (minWCount === 1 ? ' round' : ' rounds')});
   answers.push({group: 'Winning statistics', field: 'Average round winning', value: eur(winNets.length > 0 ? sumW / winNets.length : 0)});
+  answers.push({group: 'Winning statistics', field: 'Top 3 winnings share', value: eur(top3sum), note: top3share.toFixed(0) + '% of all winnings'});
   answers.push({group: 'Winning statistics', field: 'Average round result',
                 value: (sRounds > 0 && sTotalNet >= 0 ? '+' : (sRounds > 0 ? '-' : '')) + eur(sRounds > 0 ? sTotalNet / sRounds : 0),
                 neg: sRounds > 0 && sTotalNet < 0});
