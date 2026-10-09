@@ -51,7 +51,7 @@ td {
   }
 
 .main-content{
-    padding: calc(70px + 25px) 25px 25px;
+    padding: 12px 25px 25px;
     min-height: calc(100vh - 70px);
 
 }
