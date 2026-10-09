@@ -736,6 +736,107 @@ color: var(--red) !important;
 .total-round-cnt, .win-round-cnt, .tie-round-cnt, .loss-round-cnt{
   white-space: nowrap;
 }
+
+/* ================= DARK MODE (body.dark) ================= */
+body.dark{
+  color-scheme: dark;
+  --page-bg: #000E0B;
+  --card-bg: #0C1B16;
+  --track-bg: #0C1B16;
+  --tip-bg: #12241D;
+  --ink: #E9EFEC;
+  --ink-2: #B9C6C0;
+  --ink-3-85: rgba(233,239,236,0.85);
+  --ink-3-70: rgba(233,239,236,0.7);
+  --muted: #8AA39A;
+  --muted-70: rgba(138,163,154,0.7);
+  --muted-60: rgba(138,163,154,0.6);
+  --muted-80: rgba(138,163,154,0.8);
+  --muted-90: rgba(138,163,154,0.9);
+  --muted-95: rgba(138,163,154,0.95);
+  --faint: #33463E;
+  --line: #1E3A2F;
+  --line-soft: #16281F;
+  --line-2: #2A4A3C;
+  --line-dark: rgba(255,255,255,0.14);
+  --line-strong: #4A6A5C;
+  --brand: #043927;
+  --brand-ink: #00F4BB;
+  --paolo: #00C9A7;
+  --teal: #00C9A7;
+  --mint: #0E2A22;
+  --on-brand: #ffffff;
+  --red: #F2617A;
+  --red-bg: #2A1417;
+  --warn: #f6b343;
+  --warn-ink: #e8a020;
+  --warn-bg: #2A2110;
+  --success-bg: #0E2A22;
+  --heat-seq: #eef2fc;
+  --heat-skip: #f2c94c;
+  --heat-short: #f2994a;
+  --heat-long: #eb5757;
+  --avatar-bg: #1E3A30;
+  --shadow: rgba(0,0,0,0.5);
+  --brand-shadow: rgba(0,0,0,0.45);
+  --chart-win: #81F495;
+  --chart-loss: #F07D88;
+}
+
+/* dark-mode: third-party / browser-default bits our tokens do not cover */
+body.dark .text-dark{ color: var(--ink) !important; }
+body.dark a{ color: #00F4BB; }
+body.dark .table{
+  --bs-table-bg: transparent;
+  --bs-table-striped-bg: rgba(255,255,255,0.045);
+  --bs-table-hover-bg: rgba(255,255,255,0.07);
+  --bs-table-border-color: var(--line);
+  color: var(--ink);
+}
+body.dark .table > :not(caption) > * > *{ border-color: var(--line); }
+body.dark .form-control, body.dark .form-select, body.dark select, body.dark input{
+  background-color: var(--card-bg);
+  color: var(--ink);
+  border-color: var(--line-2);
+}
+body.dark .form-select{
+  background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3e%3cpath fill='none' stroke='%23B9C6C0' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='m2 5 6 6 6-6'/%3e%3c/svg%3e");
+}
+body.dark table.dataTable thead th, body.dark table.dataTable thead td{ border-bottom-color: var(--line); }
+body.dark table.dataTable.no-footer{ border-bottom-color: var(--line); }
+body.dark table.dataTable thead .sorting,
+body.dark table.dataTable thead .sorting_asc,
+body.dark table.dataTable thead .sorting_desc{ background-image: none !important; }
+body.dark table.dataTable thead .sorting::after{ content: "↕"; float: right; color: var(--faint); }
+body.dark table.dataTable thead .sorting_asc::after{ content: "↑"; float: right; color: var(--brand-ink); }
+body.dark table.dataTable thead .sorting_desc::after{ content: "↓"; float: right; color: var(--brand-ink); }
+body.dark .dataTables_wrapper .dataTables_paginate .paginate_button{ color: var(--ink-2) !important; }
+body.dark .dataTables_wrapper .dataTables_paginate .paginate_button.current{
+  background: var(--brand) !important;
+  border-color: var(--brand) !important;
+  color: #fff !important;
+}
+body.dark .dataTables_wrapper .dataTables_paginate .paginate_button:hover{
+  background: var(--mint) !important;
+  border-color: transparent !important;
+  color: var(--brand-ink) !important;
+}
+
+/* theme toggle in the player bar */
+.theme-toggle{
+  border: 1px solid var(--line-2);
+  background: transparent;
+  color: var(--muted);
+  border-radius: 4px;
+  padding: 2px 8px;
+  cursor: pointer;
+  line-height: 1.4;
+}
+.theme-toggle:hover{
+  background: var(--mint);
+  color: var(--brand-ink);
+  border-color: var(--brand);
+}
 .Margin, .WinProcent{ white-space: nowrap; }
 
 /* Winner report suggestions */

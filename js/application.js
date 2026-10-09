@@ -25,6 +25,28 @@ window.addEventListener('unhandledrejection', function(e){
 });
 function fail(msg){ throw new Error(msg); }
 
+// ---- Dark / light theme (body.dark overrides the tokens in style.css) ----
+function applyTheme(mode, save){
+  let dark = (mode === 'dark');
+  document.body.classList.toggle('dark', dark);
+  let btn = document.getElementById('theme-toggle');
+  if(btn){
+    btn.innerHTML = '<i class="bi bi-' + (dark ? 'sun' : 'moon') + '"></i>';
+    btn.title = dark ? 'Light mode' : 'Dark mode';
+  }
+  if(save !== false){ try{ localStorage.setItem('helper-theme', dark ? 'dark' : 'light'); }catch(e){} }
+}
+function initTheme(){
+  let mode = 'light';
+  try{ mode = localStorage.getItem('helper-theme') || 'light'; }catch(e){}
+  applyTheme(mode, false);
+}
+initTheme();
+$(document).off('click.themetoggle', '#theme-toggle').on('click.themetoggle', '#theme-toggle', function(){
+  applyTheme(document.body.classList.contains('dark') ? 'light' : 'dark');
+  drawChartJS(); // re-render so canvas colors follow the theme
+});
+
 // theme token reader (CSS variables in style.css); chart follows a future
 // dark theme automatically, falls back to light values if unavailable
 function themeVar(name, fallback){
