@@ -1378,6 +1378,12 @@ function generateFindings(){
   if(typeof BotFinding !== 'undefined' && BotFinding){ add(BotFinding.level, BotFinding.text); }
 
   // ---- Summary bullet (always first) ----
+  // header counts real issues only — the summary bullet itself is not counted
+  let attCnt = 0, noteCnt = 0;
+  for(let i = 0; i < findings.length; i++){
+    if(findings[i].level === 'danger' || findings[i].level === 'warning'){ attCnt++; }
+    else{ noteCnt++; }
+  }
   let dangerCnt = findings.filter(f => f.level === 'danger').length;
   let warnCnt   = findings.filter(f => f.level === 'warning').length;
   if(dangerCnt > 0){
@@ -1402,11 +1408,6 @@ function generateFindings(){
   }
 
   // ---- Collapsible panel: summary counts in the header, list collapsed by default ----
-  let attCnt = 0, noteCnt = 0;
-  for(let i = 0; i < findings.length; i++){
-    if(findings[i].level === 'danger' || findings[i].level === 'warning'){ attCnt++; }
-    else{ noteCnt++; }
-  }
   let sumTxt = '';
   if(attCnt > 0){ sumTxt += attCnt + ' need attention'; }
   if(noteCnt > 0){ sumTxt += (sumTxt ? ' · ' : '') + noteCnt + ' note' + (noteCnt === 1 ? '' : 's'); }
