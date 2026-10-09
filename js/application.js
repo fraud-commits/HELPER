@@ -1417,8 +1417,7 @@ function renderWinnerAnswers(){
       if(!$cols){ $cols = $('<div class="row ra-cols"></div>'); $list.append($cols); }
       $cols.append(
         '<div class="col ra-col">' +
-          '<div class="ra-col-head"><span class="ra-col-field">' + a.field + '</span>' +
-          '<button type="button" class="ra-copy" data-i="' + i + '" title="Copy"><i class="bi bi-clipboard"></i></button></div>' +
+          '<div class="ra-col-head"><span class="ra-col-field">' + a.field + '</span></div>' +
           '<div class="ra-col-value' + (a.neg ? ' neg-val' : '') + '">' + a.value + '</div>' +
           (a.why ? '<div class="ra-why">' + a.why + '</div>' : '') +
         '</div>'
