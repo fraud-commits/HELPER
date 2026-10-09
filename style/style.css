@@ -640,6 +640,40 @@ th { white-space: nowrap; }
   margin-top: 1px;
 }
 
+/* Winner report suggestions as a horizontal strip (one column per dropdown) */
+.ra-cols{
+  margin-top: 10px;
+}
+
+.ra-col{
+  border-left: 1px solid #edf2f9;
+  padding-left: 14px;
+}
+
+.ra-col:first-child{
+  border-left: none;
+  padding-left: 12px;
+}
+
+.ra-col-head{
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.ra-col-field{
+  font-size: 12px;
+  color: rgba(84,84,95,0.7);
+}
+
+.ra-col-value{
+  font-weight: 600;
+  font-size: 13px;
+  color: #2a2a2a;
+  margin: 2px 0;
+}
+
 .ra-copy{
   border: none;
   background: transparent;

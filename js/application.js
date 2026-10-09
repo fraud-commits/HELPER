@@ -1366,7 +1366,7 @@ function computeWinnerAnswers(){
 
 function renderWinnerAnswers(){
 
-  // 'Report dropdowns' go to the bottom card, the rest (stats) to the analysis card
+  // 'Report dropdowns' go to the suggestions strip (columns), the rest (stats) to the analysis card (rows)
   let $list   = $('#ReportAnswers');
   let $stats  = $('#ReportStats');
   if(!$list.length && !$stats.length){ return; } // panels are not present (e.g. index2.html)
@@ -1375,24 +1375,34 @@ function renderWinnerAnswers(){
 
   let answers = computeWinnerAnswers();
   let currentGroup = '';
+  let $cols = null;
 
   for(let i = 0; i < answers.length; i++){
     let a = answers[i];
-    let $target = (a.group === 'Report dropdowns') ? $list : $stats;
-    if(!$target.length){ continue; }
+    if(a.group === 'Report dropdowns'){
+      // horizontal strip: one column per dropdown answer
+      if(!$list.length){ continue; }
+      if(!$cols){ $cols = $('<div class="row ra-cols"></div>'); $list.append($cols); }
+      $cols.append(
+        '<div class="col ra-col">' +
+          '<div class="ra-col-head"><span class="ra-col-field">' + a.field + '</span>' +
+          '<button type="button" class="ra-copy" data-i="' + i + '" title="Copy"><i class="bi bi-clipboard"></i></button></div>' +
+          '<div class="ra-col-value' + (a.neg ? ' neg-val' : '') + '">' + a.value + '</div>' +
+          (a.why ? '<div class="ra-why">' + a.why + '</div>' : '') +
+        '</div>'
+      );
+      continue;
+    }
+    if(!$stats.length){ continue; }
     if(a.group !== currentGroup){
       currentGroup = a.group;
-      $target.append('<div class="ra-group-row">' + currentGroup + '</div>');
+      $stats.append('<div class="ra-group-row">' + currentGroup + '</div>');
     }
-    // copy button only on dropdown suggestions (stats card is analysis-only)
-    let copyBtn = ($target === $list && $list.length)
-      ? '<button type="button" class="ra-copy" data-i="' + i + '" title="Copy"><i class="bi bi-clipboard"></i></button>'
-      : '';
-    $target.append(
+    // stats card is analysis-only: no copy button
+    $stats.append(
       '<div class="ra-row">' +
         '<span class="ra-field">' + a.field + '</span>' +
         '<span class="ra-value' + (a.neg ? ' neg-val' : '') + '">' + a.value + (a.note ? ' <span class="text-muted ra-note">(' + a.note + ')</span>' : '') + (a.why ? '<span class="ra-why">' + a.why + '</span>' : '') + '</span>' +
-        copyBtn +
       '</div>'
     );
   }
