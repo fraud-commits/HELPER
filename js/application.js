@@ -959,6 +959,10 @@ if (element ) {
 }
   }
 
+  // default order: Net descending
+  DealerArry.sort(function(a, b){ return b.TotalNet - a.TotalNet; });
+  TableArry.sort(function(a, b){ return b.TotalNet - a.TotalNet; });
+
   for(i = 0; i < DealerArry.length; i++){
 
     $(".DealerTop").append(`
@@ -1009,7 +1013,7 @@ if (element ) {
       <td>` + GameTypeArry[i].TotalBet.toFixed(2) + `</td>
       <td` + negClass(GameTypeArry[i].TotalNet) + `>` + GameTypeArry[i].TotalNet.toFixed(2) + `</td>
       <td>`+ GameTypeArry[i].RoundCount +` </td>
-      <td` + negClass(GameTypeArry[i].TotalNet) + `>`+ (GameTypeArry[i].TotalNet.toFixed(2) /  GameTypeArry[i].TotalBet.toFixed(2) * 100).toFixed(2) +` </td>
+      <td` + negClass(GameTypeArry[i].TotalNet) + `>`+ (GameTypeArry[i].TotalNet.toFixed(2) /  GameTypeArry[i].TotalBet.toFixed(2) * 100).toFixed(2) +` % </td>
       </tr>
       `
     )
@@ -1025,6 +1029,9 @@ function RoundTop(x){
     gapTitle = ' title="' + g.prevRound + ' → ' + RoundArry[x].RoundId + ' · ' + fmtGap(g.gap) + ' · '
              + (g.type === 'sequential' ? 'sequential' : g.type + (g.est > 0 ? ' (~' + g.est + ' rounds missed)' : '')) + '"';
   }
+
+  // default order: Net descending
+  RoundArry.sort(function(a, b){ return b.TotalRoundNet - a.TotalRoundNet; });
 
   $(".RoundTop").append(`
   <tr` + gapTitle + `>
@@ -1042,6 +1049,7 @@ DealerTop ()
 
 // init AFTER all rows are appended (DealerTop fills Dealer/Table/Game/Round tables;
 // any previous instances were already destroyed at the top of the refresh)
+// data is pre-sorted by Net descending inside DealerTop / RoundTop
 $('.table-dealer').DataTable();
 $('.table-table').DataTable();
 $('.table-game').DataTable();
