@@ -264,16 +264,17 @@ margin: 1px;
     background-color: #eef2fc !important;
   }
 
+  /* heat scale: the longer the absence, the "hotter" the color */
   .badge-skip-c{
-    background-color: #7399e5 !important;
+    background-color: #f2c94c !important;
   }
 
   .badge-short-c{
-    background-color: #4872c8 !important;
+    background-color: #f2994a !important;
   }
 
   .badge-long-c{
-    background-color: #304c85 !important;
+    background-color: #eb5757 !important;
   }
 
   /* --- gap tooltip: hover to peek, click square to fix, click an id to copy --- */
