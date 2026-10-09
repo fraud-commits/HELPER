@@ -6,6 +6,18 @@ let worksheetName = null;
 let categoryColumnNumber = null;
 let valueColumnNumber = null;
 
+// Visible diagnosis: any uncaught crash is shown in the empty-state panel
+// instead of leaving a silent dashboard full of dashes.
+window.addEventListener('error', function(e){
+  try{
+    $('#dashboard-content').hide();
+    $('#empty-state h4').text('Extension error');
+    $('#empty-state p').text(String((e && e.message) || e));
+    $('#empty-state').css('display', 'flex');
+  }catch(_){}
+});
+function fail(msg){ throw new Error(msg); }
+
 
 
 
@@ -41,6 +53,8 @@ function getSettings() {
      return sheet.name === "fraud";
    });
 
+   if(!worksheet){ fail("Worksheet 'fraud' is not on this dashboard — add the sheet and Reload the extension."); }
+
    // If settings are changed we will unregister and re register the listener.
    if (unregisterFilterEventListener != null) {
       unregisterFilterEventListener();
@@ -74,6 +88,8 @@ function drawChartJS() {
    var worksheet = worksheets.find(function (sheet) {
      return sheet.name === "fraud";
    });
+
+   if(!worksheet){ fail("Worksheet 'fraud' is not on this dashboard — add the sheet and Reload the extension."); }
 
    
 
