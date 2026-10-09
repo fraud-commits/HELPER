@@ -89,7 +89,14 @@ function drawChartJS() {
      $('#dashboard-content').show();
 
      $(".Break-Heat-Map").empty();
-     if ($.fn.DataTable.isDataTable('.table-DealerTop')) { $('.table-DealerTop').DataTable().clear().destroy(); }
+     $(".DealerTop").empty();
+     $(".TableTop").empty();
+     $(".GameTypeTop").empty();
+     $(".RoundTop").empty();
+     $(".BetPosTop").empty();
+     if ($.fn.DataTable.isDataTable('.table-dealer')) { $('.table-dealer').DataTable().clear().destroy(); }
+     if ($.fn.DataTable.isDataTable('.table-table'))  { $('.table-table').DataTable().clear().destroy(); }
+     if ($.fn.DataTable.isDataTable('.table-game'))   { $('.table-game').DataTable().clear().destroy(); }
      if ($.fn.DataTable.isDataTable('.table-roundTop')) { $('.table-roundTop').DataTable().clear().destroy(); }
      if ($.fn.DataTable.isDataTable('.table-bettop'))   { $('.table-bettop').DataTable().clear().destroy(); }
 
@@ -331,7 +338,6 @@ let element2 = DealerArry.find(e => e.DealerName === worksheetData[indexStart][D
 if (element2 ) {
   element2.TotalBet += worksheetData[indexStart][BetEUR].value;
   element2.TotalNet += worksheetData[indexStart][NetEUR].value;
-  element2.RoundCount += 1;
 
 }
 
@@ -340,7 +346,6 @@ let element4 = TableArry.find(e => e.TableName === worksheetData[indexStart][Tab
 if (element4) {
   element4.TotalBet += worksheetData[indexStart][BetEUR].value;
   element4.TotalNet += worksheetData[indexStart][NetEUR].value;
-  element4.RoundCount += 1;
 }
 
 let element3 = BetPositionArry.find(e => e.BetPosition === worksheetData[indexStart][BetPosition].formattedValue);
@@ -729,7 +734,12 @@ function BetProgression (){
     if(i == RoundArry.length - 1){
 
       next =  RoundArry.length -1
-      nextn  = RoundArry.length -2
+      nextn  = RoundArry.length -1
+
+    }else if(i == RoundArry.length - 2){
+
+      next = i + 1
+      nextn = i + 1
 
     }else{
       next = i + 1
@@ -965,6 +975,8 @@ if (element ) {
   }
 
   // ---- per-table statistics (switchable with Dealer) ----
+  for(let ti = 0; ti < TableArry.length; ti++){ TableArry[ti].RoundCount = 0; }
+  for(let ri = 0; ri < RoundArry.length; ri++){ let tt = TableArry.find(e => e.TableName === RoundArry[ri].TableName); if(tt){ tt.RoundCount += 1; } }
   for(i = 0; i < TableArry.length; i++){
     $(".TableTop").append(`
     <tr>
@@ -1005,12 +1017,6 @@ if (element ) {
   }
 }
 
-DealerTop()
-
-  $('.table-dealer').DataTable()
-  $('.table-table').DataTable()
-  $('.table-game').DataTable()
-
 function RoundTop(x){
 
   // hover hint: between which rounds the skip/break was (set by BreakCounter)
@@ -1034,6 +1040,13 @@ function RoundTop(x){
 }
 
 DealerTop ()
+
+// init AFTER all rows are appended (DealerTop fills Dealer/Table/Game/Round tables;
+// any previous instances were already destroyed at the top of the refresh)
+$('.table-dealer').DataTable();
+$('.table-table').DataTable();
+$('.table-game').DataTable();
+$('.table-roundTop').DataTable();
 
 
 function BetPositionTop(){
@@ -1284,6 +1297,7 @@ $(document).off('click.dim', '.dim-switch').on('click.dim', '.dim-switch', funct
   $('.dim-table').hide();
   $('.dim-table[data-dim="' + dim + '"]').show();
   $('#dim-stat-title').text(dim === 'dealer' ? 'Dealer statistics' : (dim === 'table' ? 'Table statistics' : 'Game type statistics'));
+  try{ $(".dim-table[data-dim='" + dim + "']").DataTable().columns.adjust(); }catch(e){}
 });
 
 // ========================= BOT / AUTOMATION CHECK =========================
