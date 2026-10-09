@@ -758,3 +758,19 @@ border-color: #043927;
   color: rgba(114,132,154,0.8);
   line-height: 1.6;
 }
+
+/* Stat tables (Dealer/Table/Game type/Round): the name column keeps enough room to
+   stay readable, numeric columns stay compact and never wrap. (The global
+   table-layout:fixed rule would otherwise split every column 1/5 and squeeze Margin.) */
+.table-responsive .dim-table > thead > tr > th:first-child,
+.table-responsive .dim-table > tbody > tr > td:first-child { width: 36%; }
+.table-responsive .table-roundTop > thead > tr > th:first-child,
+.table-responsive .table-roundTop > tbody > tr > td:first-child { width: 30%; }
+.table-responsive .dim-table > thead > tr > th:not(:first-child),
+.table-responsive .dim-table > tbody > tr > td:not(:first-child),
+.table-responsive .table-roundTop > thead > tr > th:not(:first-child),
+.table-responsive .table-roundTop > tbody > tr > td:not(:first-child) { white-space: nowrap; }
+.table-responsive .dim-table > thead > tr > th,
+.table-responsive .dim-table > tbody > tr > td,
+.table-responsive .table-roundTop > thead > tr > th,
+.table-responsive .table-roundTop > tbody > tr > td { padding-left: 6px; padding-right: 6px; }

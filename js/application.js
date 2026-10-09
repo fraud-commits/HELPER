@@ -998,7 +998,7 @@ if (element ) {
       <td>` + DealerArry[i].TotalBet.toFixed(2) + `</td>
       <td` + negClass(DealerArry[i].TotalNet) + `>` + DealerArry[i].TotalNet.toFixed(2) + `</td>
       <td>`+ DealerArry[i].RoundCount +` </td>
-      <td` + negClass(DealerArry[i].TotalNet) + `>`+ (DealerArry[i].TotalNet.toFixed(2) /  DealerArry[i].TotalBet.toFixed(2) * 100).toFixed(2) +` </td>
+      <td` + negClass(DealerArry[i].TotalNet) + `>`+ (DealerArry[i].TotalNet.toFixed(2) /  DealerArry[i].TotalBet.toFixed(2) * 100).toFixed(2) +` % </td>
       </tr>
       `
     )
@@ -1014,7 +1014,7 @@ if (element ) {
       <td>` + TableArry[i].TotalBet.toFixed(2) + `</td>
       <td` + negClass(TableArry[i].TotalNet) + `>` + TableArry[i].TotalNet.toFixed(2) + `</td>
       <td>`+ TableArry[i].RoundCount +` </td>
-      <td` + negClass(TableArry[i].TotalNet) + `>`+ (TableArry[i].TotalNet.toFixed(2) /  TableArry[i].TotalBet.toFixed(2) * 100).toFixed(2) +` </td>
+      <td` + negClass(TableArry[i].TotalNet) + `>`+ (TableArry[i].TotalNet.toFixed(2) /  TableArry[i].TotalBet.toFixed(2) * 100).toFixed(2) +` % </td>
       </tr>
       `
     )
