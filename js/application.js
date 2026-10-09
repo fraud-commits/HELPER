@@ -1218,6 +1218,81 @@ $(document).off('click.findings', '#findings-toggle').on('click.findings', '#fin
 
 generateFindings();
 
+// ========================= BOT / AUTOMATION CHECK =========================
+// Scripted-play signals for the CURRENT player, computed from the helper's
+// own round data (no extra worksheet). Mirrors the ROBOT project logic:
+// volume, bet-type entropy, stake variance, cadence, breaks.
+
+function analyzeBot(){
+
+  let $list = $('#bot-list');
+  if(!$list.length){ return; } // panel is not present (e.g. index2.html)
+  $list.empty();
+
+  let rounds = RoundArry.length;
+
+  // ---- 1. Bet type entropy (distinct positions per round, weighted) ----
+  let entropy = 0, distinctTypes = 0;
+  if(rounds > 0 && BetPositionArry.length > 0){
+    let total = 0;
+    for(let i = 0; i < BetPositionArry.length; i++){ total += BetPositionArry[i].RoundCount; }
+    distinctTypes = BetPositionArry.length;
+    if(total > 0){
+      for(let i = 0; i < BetPositionArry.length; i++){
+        let p = BetPositionArry[i].RoundCount / total;
+        if(p > 0){ entropy -= p * Math.log2(p); }
+      }
+    }
+  }
+
+  // ---- 2. Stake variance (max bet / average bet) ----
+  let avgBet = 0, maxBet = 0;
+  if(rounds > 0){ avgBet = TotalBet / rounds; }
+  for(let i = 0; i < rounds; i++){ if(RoundArry[i].TotalRoundBet > maxBet){ maxBet = RoundArry[i].TotalRoundBet; } }
+  let betVar = avgBet > 0 ? maxBet / avgBet : 0;
+
+  // ---- 3. Median cadence between played rounds ----
+  let sortedT = RoundArry.slice().map(function(r){ return parseRoundTime(r.RoundTime); })
+                         .filter(function(t){ return t !== null; })
+                         .sort(function(a, b){ return a.valueOf() - b.valueOf(); });
+  let gaps = [];
+  for(let i = 1; i < sortedT.length; i++){ gaps.push(sortedT[i].diff(sortedT[i-1], 'minutes', true)); }
+  gaps.sort(function(a, b){ return a - b; });
+  let cadence = gaps.length > 0 ? gaps[Math.floor(gaps.length / 2)] : 0;
+
+  // ---- 4. Breaks ----
+  let breakCnt = ShortBreak + LongBreak;
+
+  // ---- signals ----
+  let sig = 0;
+  let notes = [];
+
+  if(rounds > 300){ sig++; notes.push('volume: ' + rounds + ' rounds (> 300)'); }
+  if(entropy < 2.5 && distinctTypes > 0){ sig++; notes.push('low bet-type entropy: ' + entropy.toFixed(2) + ' bits across ' + distinctTypes + ' position(s)'); }
+  // scripted play keeps the stake almost fixed; a human spreads it out
+  if(betVar < 1.5 && avgBet > 0){ sig++; notes.push('almost constant stake: max ' + (betVar > 0 ? betVar.toFixed(1) : '0') + '× the average'); }
+  // very fast, steady cadence (well under the ~40 s table median)
+  if(cadence > 0 && cadence < 0.8){ sig++; notes.push('very fast cadence: median ' + (cadence * 60).toFixed(0) + ' s between rounds'); }
+  if(rounds > 100 && breakCnt === 0){ sig++; notes.push('no breaks in ' + rounds + ' rounds'); }
+
+  let verdict, lvl;
+  if(sig >= 3){ verdict = 'Yes'; lvl = 'danger'; }
+  else if(sig == 2){ verdict = 'Suspicious'; lvl = 'warning'; }
+  else{ verdict = 'No'; lvl = 'success'; }
+
+  // summary line in the card header
+  $('#bot-summary').text(verdict === 'No' ? 'No automation signs' : (verdict === 'Suspicious' ? 'Suspicious' : 'Automation signs'));
+
+  // render one verdict line + one line per triggered signal
+  let icons2 = {danger: 'bi-exclamation-octagon-fill', warning: 'bi-exclamation-triangle-fill',
+                info: 'bi-info-circle-fill', success: 'bi-check-circle-fill'};
+  $list.append('<li class="finding-' + lvl + '"><i class="bi ' + icons2[lvl] + '"></i><span><b>Bot check: ' + verdict + '.</b> ' + (notes.length ? notes.join('; ') + '.' : 'no scripted-play signals triggered.') + '</span></li>');
+}
+
+analyzeBot();
+
+// ========================= END BOT / AUTOMATION CHECK =========================
+
 // ========================= END KEY FINDINGS =========================
 
 // ==================== WINNER REPORT SUGGESTIONS =====================
