@@ -534,6 +534,9 @@ th { white-space: nowrap; }
   font-weight: 600;
 }
 
+/* the whole Key findings header toggles the panel */
+.findings-head{ cursor: pointer; user-select: none; }
+
 .findings-note{
   font-size: 11px;
   font-weight: 400;

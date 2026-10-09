@@ -1387,11 +1387,11 @@ function generateFindings(){
   $('#findings-toggle i').attr('class', 'bi bi-chevron-down');
 }
 
-$(document).off('click.findings', '#findings-toggle').on('click.findings', '#findings-toggle', function(){
+$(document).off('click.findings', '.findings-head').on('click.findings', '.findings-head', function(){
   let $card = $('#findings-card');
   $card.toggleClass('collapsed');
   let collapsed = $card.hasClass('collapsed');
-  $(this).find('i').attr('class', collapsed ? 'bi bi-chevron-down' : 'bi bi-chevron-up');
+  $('#findings-toggle i').attr('class', collapsed ? 'bi bi-chevron-down' : 'bi bi-chevron-up');
 });
 
 let BotFinding = null; // set by analyzeBot(): {level, text} for the Key findings bullet
