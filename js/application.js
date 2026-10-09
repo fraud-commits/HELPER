@@ -1465,21 +1465,13 @@ function computeWinnerAnswers(){
   else if(chaosPct >= 30 && samePct >= 20){ prog = 'Chaotic, however at some passages flat wagers'; }
   else{ prog = 'Chaotic wagers, regardless to previous game outcome'; }
 
-  // Bet ramp => "Ramping ( Card counter )" only for a clear late spike AFTER A WIN
+  // NOTE: no "Ramping (Card counter)" override — a late bet spike alone is not enough
+  // evidence for card counting; the percentage-based label below applies instead.
+  // Sharp spikes are still flagged separately in Key findings ("Bet ramp" warning).
   let progWhy;
   if(rounds <= 1){ progWhy = 'only 1 round in the session'; }
   else{
     progWhy = 'flat ' + samePct.toFixed(0) + '% · negative ' + negPct.toFixed(0) + '% · positive ' + upPct2.toFixed(0) + '% · chaotic ' + chaosPct.toFixed(0) + '% of ' + rounds + ' rounds';
-  }
-  if(rounds >= 10 && avgBetSafe() > 0){
-    let maxI = 0;
-    for(let i = 0; i < rounds; i++){ if(RoundArry[i].TotalRoundBet > RoundArry[maxI].TotalRoundBet){ maxI = i; } }
-    if(RoundArry[maxI].TotalRoundBet >= 4 * avgBetSafe() && maxI > rounds / 2 &&
-       RoundArry[maxI].TotalRoundNet > 0 && prog.indexOf('Chaotic') === 0){
-      // ramp after a WIN = card counter; ramp after losses = chasing (negative progression), not counting
-      prog = 'Ramping ( Card counter )';
-      progWhy = 'max round bet ' + eur(RoundArry[maxI].TotalRoundBet) + ' is ' + (RoundArry[maxI].TotalRoundBet / avgBetSafe()).toFixed(1) + '× the average (' + eur(avgBetSafe()) + '), round ' + RoundArry[maxI].RoundId + ' (won) in the 2nd half of the session';
-    }
   }
   function avgBetSafe(){ return rounds > 0 ? TotalBet / rounds : 0; }
 
