@@ -348,6 +348,12 @@ margin: 1px;
     padding: 0 4px;
   }
 
+  /* extension version marker (bottom of the page) */
+  .ext-version{
+    font-size: 10px;
+    color: rgba(114,132,154,0.6);
+  }
+
   .gap-tip-meta{
     opacity: .9;
   }
