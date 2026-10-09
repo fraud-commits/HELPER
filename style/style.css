@@ -613,6 +613,18 @@ color: #e63757 !important;
   background: #043927;
   color: #fff;
   border-color: #043927;
+
+/* chart mode switch (Bet / Net) */
+.chart-switch{
+padding: 2px 8px;
+font-size: 11px;
+}
+
+.chart-switch.active{
+background: #043927;
+color: #fff;
+border-color: #043927;
+}
 }
 
 /* Winner report suggestions */

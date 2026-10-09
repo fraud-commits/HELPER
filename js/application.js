@@ -1044,6 +1044,15 @@ function RoundTop(x){
 
 DealerTop ()
 
+// chronological order for the chart (and any per-round view): sort rounds by time
+RoundArry.sort(function(a, b){
+  let ta = parseRoundTime(a.RoundTime), tb = parseRoundTime(b.RoundTime);
+  if(!ta && !tb){ return 0; }
+  if(!ta){ return 1; }
+  if(!tb){ return -1; }
+  return ta.valueOf() - tb.valueOf();
+});
+
 // init AFTER all rows are appended (DealerTop fills Dealer/Table/Game/Round tables;
 // any previous instances were already destroyed at the top of the refresh)
 // data is pre-sorted by Net descending inside DealerTop / RoundTop
@@ -1409,7 +1418,7 @@ function computeWinnerAnswers(){
   let prog;
   if(rounds <= 1){ prog = 'Other one'; }
   else if(samePct >= 70){ prog = 'Flat wagers'; }
-  else if(chaosPct >= 20 && samePct >= 30){ prog = 'Chaotic, however at some passages flat wagers'; }
+  else if(chaosPct >= 20 && samePct >= 20){ prog = 'Chaotic, however at some passages flat wagers'; }
   else if(samePct >= 50){ prog = 'Mainly flat wagers'; }
   else if(martingeil >= 2 && negPct >= 50){ prog = 'Martingale betting system'; }
   else if(negPct >= 70){ prog = 'Negative progression'; }
@@ -1423,6 +1432,7 @@ function computeWinnerAnswers(){
   else if(chaosPct >= 60 && samePct >= 20){ prog = 'Chaotic, however at some passages flat wagers'; }
   else if(chaosPct >= 60 && negPct >= 20){ prog = 'Chaotic, at some passages negative progression is selected'; }
   else if(chaosPct >= 50){ prog = 'Mainly chaotic'; }
+  else if(chaosPct >= 30 && samePct >= 20){ prog = 'Chaotic, however at some passages flat wagers'; }
   else{ prog = 'Chaotic wagers, regardless to previous game outcome'; }
 
   // Bet ramp => "Ramping ( Card counter )" only for a clear late spike AFTER A WIN
@@ -1666,6 +1676,16 @@ $(document).off('change.fingame', '#fin-game-filter').on('change.fingame', '#fin
   $(".roulette-container").append('<canvas id="bar-chart" style="height: 168px;" ></canvas>');
   $(".roulette-container2").append('<canvas id="bar-chart2" style="height: 80px;" ></canvas>');
 
+  renderBetChart();
+
+function renderBetChart(){
+  let showNet = (typeof ChartMode !== 'undefined') && ChartMode === 'net';
+  let chartLabel = showNet ? 'Net Amount (€)' : 'Bet Amount (€)';
+  let chartData = RoundArry.map(function(a){ return showNet ? a.TotalRoundNet : a.TotalRoundBet; });
+  if(document.getElementById('chart-title')){
+    document.getElementById('chart-title').textContent = showNet ? 'Net Amount Chart' : 'Bet Amount Chart';
+  }
+
 new Chart(document.getElementById("bar-chart"), {
     type: 'bar',
     data: {
@@ -1674,9 +1694,9 @@ new Chart(document.getElementById("bar-chart"), {
             {
                 barPercentage: 0.9,
                 categoryPercentage: 1,
-                label: "Bet Amount (€)",
+                label: chartLabel,
                 backgroundColor: RoundArry.map(a => a.TotalRoundNet > 0 ? "#81F495" : "#F07D88"), // Green if positive, Red if negative
-                data: RoundArry.map(a => a.TotalRoundBet) // Bars represent TotalRoundBet
+                data: chartData
             }
         ]
     },
@@ -1719,6 +1739,18 @@ new Chart(document.getElementById("bar-chart"), {
             }
         }
     }
+});
+} // end renderBetChart
+
+// Bet / Net chart mode switcher
+let ChartMode = 'bet';
+$(document).off('click.chartmode', '.chart-switch').on('click.chartmode', '.chart-switch', function(){
+  ChartMode = $(this).data('chart') || 'bet';
+  $('.chart-switch').removeClass('active');
+  $(this).addClass('active');
+  $('#bar-chart').remove();
+  $('.roulette-container').append('<canvas id="bar-chart" style="height: 168px;" ></canvas>');
+  renderBetChart();
 });
 
 
