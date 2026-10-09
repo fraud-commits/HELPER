@@ -113,7 +113,6 @@ function drawChartJS() {
            NetEUR = 9;
 
            let RoundSkipp = 0;
-           let OppRoundsCount = 0;
            let ShortBreak = 0;
            let LongBreak = 0;
            let SequentialGame = 0;
@@ -1385,44 +1384,6 @@ function analyzeBot(){
 let lastWinnerAnswers = [];
 let FinGameFilter = '__all'; // game-type scope of the Financial analysis card ('__all' or a GameType)
 
-// ---- Opposite betting (silent check, only on games where it can occur) ----
-// Applicable only if the session contains bet positions that belong to a known
-// opposing pair (e.g. Banker/Player, Red/Black). Exact position match — side
-// bets like "Banker Bonus" / "Player Bonus" do NOT count as opposite betting.
-let OppApplicable = false;
-const OPP_PAIRS = [['banker','player'], ['red','black'], ['even','odd'], ['high','low'], ['1-18','19-36'], ['manque','passe']];
-
-function analyzeOppositeBetting(){
-  OppRoundsCount = 0;
-  OppApplicable = false;
-
-  let roundPos = {};
-  let positionSet = {};
-  for(let i = 0; i < worksheetData.length; i++){
-    let rid = worksheetData[i][RoundID].formattedValue;
-    let pos  = worksheetData[i][BetPosition].formattedValue.trim().toLowerCase();
-    if(!roundPos[rid]){ roundPos[rid] = []; }
-    roundPos[rid].push(pos);
-    positionSet[pos] = true;
-  }
-
-  // run only for games where opposite betting is structurally possible
-  // (session must contain at least one side of a known opposing pair)
-  for(let p = 0; p < OPP_PAIRS.length; p++){
-    if(positionSet[OPP_PAIRS[p][0]] || positionSet[OPP_PAIRS[p][1]]){ OppApplicable = true; break; }
-  }
-  if(!OppApplicable){ return; }
-
-  for(let rid in roundPos){
-    for(let p = 0; p < OPP_PAIRS.length; p++){
-      if(roundPos[rid].indexOf(OPP_PAIRS[p][0]) !== -1 && roundPos[rid].indexOf(OPP_PAIRS[p][1]) !== -1){
-        OppRoundsCount++;
-        break;
-      }
-    }
-  }
-}
-
 function computeWinnerAnswers(){
 
   let rounds  = RoundArry.length;
@@ -1514,17 +1475,6 @@ function computeWinnerAnswers(){
   else if(T == 0){ brWhy = 'no gaps ≥ 10 min between played rounds'; }
   else{ brWhy = S + ' short (10–30 min) + ' + L + ' long (> 30 min) = ' + T + ' break(s)'; }
   answers.push({group: 'Report dropdowns', field: 'Breaks during analysis', value: br, why: brWhy});
-
-  // ---------- Signs of opposite betting (only for games where it applies) ----------
-  analyzeOppositeBetting();
-  if(OppApplicable){
-    let oppYes = OppRoundsCount > 0;
-    answers.push({group: 'Report dropdowns', field: 'Signs of opposite betting?',
-      value: oppYes ? 'Yes' : 'No',
-      why: oppYes
-        ? OppRoundsCount + ' round(s) with opposing bets on both sides (exact position match)'
-        : 'no same-round opposing bets by this player in ' + rounds + ' rounds; cross-account check (IP report) still required'});
-  }
 
   // ---------- Wager statistics (scoped by the Game filter; dropdowns above stay global) ----------
   let scope = (typeof FinGameFilter === 'string' && FinGameFilter !== '__all')
