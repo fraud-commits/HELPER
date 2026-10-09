@@ -1776,6 +1776,7 @@ new Chart(document.getElementById("bar-chart"), {
 let ChartMode = 'bet';
 $(document).off('click.chartmode', '.chart-switch').on('click.chartmode', '.chart-switch', function(){
   ChartMode = $(this).data('chart') || 'bet';
+  console.log('[helper] chart mode ->', ChartMode);
   $('.chart-switch').removeClass('active');
   $(this).addClass('active');
   $('#bar-chart').remove();
