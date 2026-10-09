@@ -777,24 +777,33 @@ function BetProgression (){
       nextn = i + 2
     }
 
-    if (RoundArry[cur].TotalRoundBet == RoundArry[next].TotalRoundBet){
+    // transition cur -> next (chronological order guaranteed above):
+    // flat = same stake ±2% (10 vs 10.2 is flat, 10 vs 15 is not);
+    // negative pattern = raise after a loss OR lower after a win;
+    // positive pattern = raise after a win OR lower after a loss.
+    // (chaotic is session-level — both systems mixed — not a transition label.)
+    let curBet = RoundArry[cur].TotalRoundBet;
+    let nextBet = RoundArry[next].TotalRoundBet;
+    let curNet = RoundArry[cur].TotalRoundNet;
+    if (Math.abs(nextBet - curBet) <= curBet * 0.02){
       same += 1; //Flat
-    }else if(RoundArry[cur].TotalRoundBet < RoundArry[next].TotalRoundBet && RoundArry[cur].TotalRoundNet > 0){
-      up += 1; // Positive
-    }else if (RoundArry[cur].TotalRoundNet <= 0 && RoundArry[cur].TotalRoundBet * 2 <= RoundArry[next].TotalRoundBet){
-    
-      if(RoundArry[next].TotalRoundNet <= 0 && RoundArry[next].TotalRoundBet * 2 <= RoundArry[nextn].TotalRoundBet){
+    }else if(nextBet > curBet && curNet <= 0){
+      // raise after a loss → negative pattern (any size, not just 2x);
+      // back-to-back 2x+ raises after losses tracked as Martingale
+      if(curBet * 2 <= nextBet && RoundArry[next].TotalRoundNet <= 0 &&
+         RoundArry[next].TotalRoundBet * 2 <= RoundArry[nextn].TotalRoundBet){
         martingeil += 1; // Martingale
       }else{
         negativ += 1; // Negative
       }
-        
-      }
-    
-    else{
-      chaotic += 1; // chaotic
+    }else if(nextBet > curBet){
+      up += 1; // raise after a win → positive pattern
+    }else if(curNet > 0){
+      negativ += 1; // lower after a win (back to base) → negative pattern
+    }else{
+      up += 1; // lower after a loss (cut) → positive pattern
     }
-    
+
     /*
     
     if (RoundArry[cur].TotalRoundBet == RoundArry[next].TotalRoundBet){
@@ -1199,19 +1208,19 @@ function generateFindings(){
 
   // ---- 3. Betting strategy (manual §5.5: Flat / Negative & Martingale are
   //         normal; erratic play and Bet Ramps are red flags) ----
+  // Note: chaotic is session-level (both staking systems mixed), not a transition bucket.
   let samePct   = pct(same, rounds);
   let negPct    = pct(negativ + martingeil, rounds);
   let upPct     = pct(up, rounds);
-  let chaosPct  = pct(chaotic, rounds);
 
   if(rounds >= 5 && maxRound && avgBet > 0 && maxRound.TotalRoundBet >= 3 * avgBet){
     add('warning', '<b>Bet ramp:</b> sudden sharp bet increase up to ' + eur(maxRound.TotalRoundBet) +
         ' (' + (maxRound.TotalRoundBet / avgBet).toFixed(1) + '× the average, round ' + maxRound.RoundId +
         ') — may indicate advantage play.');
   }
-  if(rounds >= 15 && chaosPct >= 60){
-    add('warning', '<b>Erratic strategy:</b> bet sizing looks random in ' + chaosPct.toFixed(0) +
-        '% of rounds — could indicate testing, scripting or manipulation.');
+  if(rounds >= 15 && negPct >= 20 && upPct >= 20){
+    add('warning', '<b>Erratic strategy:</b> no consistent staking system — negative pattern in ' + negPct.toFixed(0) +
+        '% and positive pattern in ' + upPct.toFixed(0) + '% of rounds — could indicate testing, scripting or manipulation.');
   }
   if(samePct >= 70){
     add('success', 'Flat betting throughout the session — consistent with normal play.');
@@ -1449,30 +1458,31 @@ function computeWinnerAnswers(){
   }
 
   // ---------- Betting progression (exact report options) ----------
+  // Per-transition buckets: flat (±2%) / negative pattern (raise after loss,
+  // lower after win) / positive pattern (raise after win, lower after loss).
+  // Chaotic is a session-level verdict — both systems mixed with no dominance —
+  // never a catch-all transition bucket.
   let samePct  = p(same);
   let negPct   = p(negativ + martingeil);
   let upPct2   = p(up);
-  let chaosPct = p(chaotic);
 
   let prog;
   if(rounds <= 1){ prog = 'Other one'; }
   else if(samePct >= 70){ prog = 'Flat wagers'; }
-  else if(chaosPct >= 20 && samePct >= 20){ prog = 'Chaotic, however at some passages flat wagers'; }
-  else if(samePct >= 50){ prog = 'Mainly flat wagers'; }
-  else if(martingeil >= 2 && negPct >= 50){ prog = 'Martingale betting system'; }
   else if(negPct >= 70){ prog = 'Negative progression'; }
+  else if(martingeil >= 2 && negPct >= 50){ prog = 'Martingale betting system'; }
   else if(negPct >= 50){ prog = 'Mainly negative betting progression'; }
-  else if(negPct >= 30 && samePct >= 30){ prog = 'Negative progression, however at some passages flat'; }
-  else if(chaosPct >= 30 && negPct >= 30){ prog = 'Chaotic, at some passages negative progression is selected'; }
   else if(upPct2 >= 85){ prog = 'Positive progression'; }
   else if(upPct2 >= 60){ prog = 'Progressive betting'; }
-  else if(chaosPct >= 85){ prog = 'Chaotic'; }
-  else if(chaosPct >= 60 && samePct >= 20 && negPct >= 20){ prog = 'Chaotic, however at some passages flat wagers and at some passages negative progressions'; }
-  else if(chaosPct >= 60 && samePct >= 20){ prog = 'Chaotic, however at some passages flat wagers'; }
-  else if(chaosPct >= 60 && negPct >= 20){ prog = 'Chaotic, at some passages negative progression is selected'; }
-  else if(chaosPct >= 50){ prog = 'Mainly chaotic'; }
-  else if(chaosPct >= 30 && samePct >= 20){ prog = 'Chaotic, however at some passages flat wagers'; }
-  else{ prog = 'Chaotic wagers, regardless to previous game outcome'; }
+  else if(samePct >= 50){ prog = 'Mainly flat wagers'; }
+  else if(negPct >= 20 && upPct2 >= 20 && samePct >= 25){ prog = 'Chaotic, however at some passages flat wagers'; }
+  else if(negPct >= 20 && upPct2 >= 20 && negPct > upPct2){ prog = 'Chaotic, at some passages negative progression is selected'; }
+  else if(negPct >= 20 && upPct2 >= 20){ prog = 'Chaotic wagers, regardless to previous game outcome'; }
+  else if(negPct >= 30 && samePct >= 20 && negPct >= samePct){ prog = 'Negative progression, however at some passages flat'; }
+  else if(upPct2 >= 30 && samePct >= 20 && upPct2 > samePct){ prog = 'Progressive betting'; }
+  else if(samePct >= negPct && samePct >= upPct2){ prog = 'Mainly flat wagers'; }
+  else if(negPct >= upPct2){ prog = 'Mainly negative betting progression'; }
+  else{ prog = 'Progressive betting'; }
 
   // NOTE: no "Ramping (Card counter)" override — a late bet spike alone is not enough
   // evidence for card counting; the percentage-based label below applies instead.
@@ -1480,7 +1490,7 @@ function computeWinnerAnswers(){
   let progWhy;
   if(rounds <= 1){ progWhy = 'only 1 round in the session'; }
   else{
-    progWhy = 'flat ' + samePct.toFixed(0) + '% · negative ' + negPct.toFixed(0) + '% · positive ' + upPct2.toFixed(0) + '% · chaotic ' + chaosPct.toFixed(0) + '% of ' + rounds + ' rounds';
+    progWhy = 'flat ' + samePct.toFixed(0) + '% · negative ' + negPct.toFixed(0) + '% · positive ' + upPct2.toFixed(0) + '% of ' + rounds + ' rounds';
   }
   function avgBetSafe(){ return rounds > 0 ? TotalBet / rounds : 0; }
 
