@@ -232,11 +232,9 @@ function drawChartJS() {
             let TableArry = [];
 
             let up = 0,
-            down = 0,
             same = 0,
             negativ = 0,
-            martingeil = 0,
-            chaotic = 0;
+            martingeil = 0;
 
             SideBetArry = ["Banker Bonus", "Banker Pair", "Phoenix Pair", "Player Bonus","Player Pair", "Small","Super 6"];
             
@@ -853,11 +851,8 @@ else if (LongBreak == 1 && ShortBreak ==  2 ){
 
 function BetProgression (){
 
-  let TotalBet;
-
   for (let i = 0; i < RoundArry.length; i++ ){
 
-    TotalBet += RoundArry[i].TotalRoundBet
     let cur = i;
     let next;
     let nextn;
@@ -904,97 +899,10 @@ function BetProgression (){
       up += 1; // lower after a loss (cut) → positive pattern
     }
 
-    /*
-    
-    if (RoundArry[cur].TotalRoundBet == RoundArry[next].TotalRoundBet){
-      same += 1;
-    }else if (RoundArry[cur].TotalRoundNet <= 0 && RoundArry[cur].TotalRoundBet * 2 <= RoundArry[next].TotalRoundBet){
-    
-    if(RoundArry[next].TotalRoundNet <= 0 && RoundArry[next].TotalRoundBet * 2 <= RoundArry[nextn].TotalRoundBet){
-      martingeil += 1;
-    }
-      negativ += 1;
-    }
-    
-    if(RoundArry[cur].TotalRoundBet < RoundArry[next].TotalRoundBet && RoundArry[cur].TotalRoundNet > 0){
-      up += 1;
-    }else{
-      chaotic += 1;
-    }
-
-      */
-
     
     }
 
 
-/*
-
-let up = 0,
-down = 0,
-same = 0,
-negativ = 0,
-martingeil = 0;
-chaotic
-*/
-
-let UpProcent = up / RoundArry.length * 100;
-let DownProcent = down / RoundArry.length * 100;
-let SameProcent = same / RoundArry.length * 100;
-let NegativProcent = negativ / RoundArry.length * 100;
-let MartingeilProcent = martingeil / RoundArry.length * 100;
-let ChaoticProcent = chaotic / RoundArry.length * 100;
-
-//console.log("Same " + SameProcent)
-
-
-//console.log("UP " + UpProcent)
-//console.log("Down " + DownProcent)
-//console.log("Negativ " + NegativProcent)
-//console.log("Martingeil " + MartingeilProcent)
-//console.log("Chaotic " + ChaoticProcent)
-
-let bettingprogression;
-
-if(SameProcent  >= 70.00 ){
-  console.log("Flat wager") // Flat wager
-  bettingprogression = "Flat wager"
-}else if (SameProcent  >= 69.00){
-  console.log("Mainly flat wager") // Mainly flat wager
-  bettingprogression = "Mainly flat wager"
-}else if (SameProcent  >= 68.00 && UpProcent >= 32.00){
-  console.log("Mainly flat wager at some passage possitive progression") // Mainly flat wager at some passage possitive progression
-  bettingprogression ="Mainly flat wager at some passage possitive progression"
-}else if (SameProcent  >= 30.00 && NegativProcent >= 70.00){
-  console.log("Negative  progression, however at some passages flat") // Negative  progression, however at some passages flat
-  bettingprogression = "Negative  progression, however at some passages flat"
-}else if (UpProcent >= 85.00){
-  console.log("Possitive progression") // Negative  progression, however at some passages flat
-  bettingprogression = "Possitive progression"
-}else if (DownProcent >= 85.00){
-  console.log("Negative progression") // Negative  progression
-  bettingprogression = "Negative progression"
-}else if (DownProcent >= 50.00 && UpProcent >= 50.00){
-  console.log("Chaotic wagers, regardless to previous game outcome") // Chaotic wagers, regardless to previous game outcome
-  bettingprogression = "Chaotic wagers, regardless to previous game outcome"
-}else if (ChaoticProcent >= 85.00){
-  console.log("Chaotic") // Chaotic  progression
-  bettingprogression = "Chaotic"
-}else if (ChaoticProcent >= 20.00 && SameProcent >= 30.00){ 
-  console.log("Chaotic, however at some pasage flat wager") // Chaotic  progression -----------GOOD
-  bettingprogression = "Chaotic, however at some pasage flat wager"
-}else if (ChaoticProcent >= 60.00 && SameProcent >= 20.00 && NegativProcent >= 20.00){
-  console.log("Chaotic, however at some passage flat wager and at some passage negative progression") // Chaotic, however at some passage flat wager and at some passage negative progression
-  bettingprogression = "Chaotic, however at some passage flat wager and at some passage negative progression"
-}else if (ChaoticProcent >= 60.00 && NegativProcent >= 40.00){
-  console.log("Chaotic, however at some passage fegative progression") // Chaotic, however at some passage fegative progression
-  bettingprogression = "Chaotic, however at some passage fegative progression"
-}else{
-  console.log("Betting progression Chaotic")
-  bettingprogression = "Betting progression Chaotic"
-}
-
-$(".bettingProgression").text(bettingprogression)
 
 }
 
@@ -1006,11 +914,6 @@ BetProgression ()
 
 
 
-//console.log(same + " - Falt" )
-//console.log(negativ + " - Negative" )
-//console.log(martingeil + " - Matingeil")
-//console.log(up + " - Positive")
-//console.log(chaotic + " - Chaotic")
 
 
 
@@ -1663,8 +1566,6 @@ function computeWinnerAnswers(){
   else{
     progWhy = 'flat ' + samePct.toFixed(0) + '% · negative ' + negPct.toFixed(0) + '% · positive ' + upPct2.toFixed(0) + '% of ' + rounds + ' rounds';
   }
-  function avgBetSafe(){ return rounds > 0 ? TotalBet / rounds : 0; }
-
   answers.push({group: 'Report dropdowns', field: 'Betting progression', value: prog, why: progWhy});
 
   // ---------- Bet continuity (exact report options) ----------
