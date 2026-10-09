@@ -162,9 +162,12 @@ function Trigger(){
   $('.PlayerId').text(playerId);
   $('.OperatorId').text(operatorId);
   if(operatorId && playerId){
-    $('.bo-link').attr('href', 'https://lfscbo.com/#lfs/player&id=' + operatorId + ':' + playerId).show();
+    let boUrl = 'https://lfscbo.com/#lfs/player&id=' + operatorId + ':' + playerId;
+    $('.bo-link').attr('href', boUrl).show();
+    $('.bo-url').text(boUrl);
   }else{
     $('.bo-link').hide();
+    $('.bo-url').text('');
   }
 
   for (var i = 0; i < worksheetData.length; i++) {
@@ -1696,6 +1699,11 @@ $(document).off('change.fingame', '#fin-game-filter').on('change.fingame', '#fin
 
 // ================== END WINNER REPORT SUGGESTIONS ===================
 
+// chart mode must be declared BEFORE the first renderBetChart() call below
+// (let-variables in the temporal dead zone throw on typeof access)
+let ChartMode = 'bet';
+let betChart = null;
+
   $("#bar-chart").remove();
 
   $(".roulette-container").append('<canvas id="bar-chart" style="height: 168px;" ></canvas>');
@@ -1711,7 +1719,8 @@ function renderBetChart(){
     document.getElementById('chart-title').textContent = showNet ? 'Net Amount Chart' : 'Bet Amount Chart';
   }
 
-new Chart(document.getElementById("bar-chart"), {
+if(betChart){ try{ betChart.destroy(); }catch(e){} betChart = null; }
+betChart = new Chart(document.getElementById("bar-chart"), {
     type: 'bar',
     data: {
         labels: RoundArry.map(a => a.RoundId),
@@ -1767,8 +1776,7 @@ new Chart(document.getElementById("bar-chart"), {
 });
 } // end renderBetChart
 
-// Bet / Net chart mode switcher
-let ChartMode = 'bet';
+// Bet / Net chart mode switcher (ChartMode declared above, before first render)
 $(document).off('click.chartmode', '.chart-switch').on('click.chartmode', '.chart-switch', function(){
   ChartMode = $(this).data('chart') || 'bet';
   console.log('[helper] chart mode ->', ChartMode);
