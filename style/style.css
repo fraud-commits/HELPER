@@ -317,8 +317,9 @@ margin: 1px;
   }
 
   .gap-copy{
-    background: none;
-    border: 0;
+    background: transparent;
+    border: none;
+    outline: none;
     padding: 0;
     margin: 0;
     color: #ffd479;
@@ -332,21 +333,17 @@ margin: 1px;
     color: #ffffff;
   }
 
-  .gap-copy.copied{
-    color: #81F495;
-    text-decoration: none;
-  }
-
-  /* manual-copy fallback: pre-selected field when the clipboard is blocked */
-  .gap-manual{
-    width: 11em;
-    max-width: 100%;
+  .gap-copy:focus{
     background: #1e1e1e;
     border: 1px solid #6b6b6b;
     border-radius: 3px;
-    color: #ffd479;
-    font: inherit;
-    padding: 0 4px;
+    text-decoration: none;
+    padding: 0 3px;
+  }
+
+  .gap-copy.copied{
+    color: #81F495;
+    text-decoration: none;
   }
 
   /* extension version marker (bottom of the page) */

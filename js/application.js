@@ -391,9 +391,14 @@ function gapTipShow(el){
   let from = $el.attr('data-from') || '';
   let to = $el.attr('data-to') || '';
   let meta = $el.attr('data-meta') || '';
+  // readonly inputs: click natively selects the text (works even if JS copy is blocked),
+  // onfocus selects via inline handler as well so no framework is needed for selection
+  function idField(v){
+    return '<input class="gap-copy" readonly="readonly" value="' + v.replace(/"/g, '&quot;') + '" data-round="' + v.replace(/"/g, '&quot;') + '" size="' + Math.max(v.length, 4) + '" onfocus="this.select()" title="click, then Ctrl+C">';
+  }
   let ids = '';
-  if(from){ ids += '<button type="button" class="gap-copy" data-round="' + from + '">' + from + '</button>'; }
-  if(to){ ids += ' <span class="gap-arrow">→</span> <button type="button" class="gap-copy" data-round="' + to + '">' + to + '</button>'; }
+  if(from){ ids += idField(from); }
+  if(to){ ids += ' <span class="gap-arrow">→</span> ' + idField(to); }
   tip.html(
     '<div class="gap-tip-ids">' + ids + '</div>' +
     '<div class="gap-tip-meta">' + meta + '</div>' +
@@ -480,23 +485,24 @@ $(document)
   .off('click.gapcopy', '.gap-copy')
   .on('click.gapcopy', '.gap-copy', function(e){
     e.stopPropagation();
-    let txt = $(this).attr('data-round') || '';
-    let $btn = $(this);
-    function done(){
-      $btn.addClass('copied');
-      setTimeout(function(){ $btn.removeClass('copied'); }, 1000);
+    let el = this;
+    let $input = $(el);
+    let txt = $input.val() || $input.attr('data-round') || '';
+    el.focus();
+    try{ el.select(); }catch(err){}
+    try{ el.setSelectionRange(0, txt.length); }catch(err2){}
+    function setHint(t){ $('#gap-tip .gap-tip-hint').text(t); }
+    function ok(){
+      $input.addClass('copied');
+      setHint('copied to clipboard ✓');
+      setTimeout(function(){ $input.removeClass('copied'); }, 1500);
     }
-    // clipboard is blocked (e.g. embedded Tableau browser):
-    // swap the button for a pre-selected field so the analyst can press Ctrl+C
-    function manualCopy(){
-      let $input = $('<input class="gap-manual" readonly="readonly" value="' + txt.replace(/"/g, '&quot;') + '">');
-      $btn.replaceWith($input);
-      $input.focus();
-      try{ $input[0].setSelectionRange(0, txt.length); }catch(err){}
-      $('#gap-tip .gap-tip-hint').text('clipboard is blocked — press Ctrl+C, then click elsewhere');
+    function needManual(){
+      // text is already natively selected in the field — the analyst just presses Ctrl+C
+      setHint('ID selected — press Ctrl+C');
     }
     function fallback(){
-      let ok = false, ta = null;
+      let done = false, ta = null;
       try{
         ta = document.createElement('textarea');
         ta.value = txt;
@@ -508,14 +514,17 @@ $(document)
         document.body.appendChild(ta);
         ta.focus();
         ta.select();
-        try{ ta.setSelectionRange(0, txt.length); }catch(err2){}
-        ok = document.execCommand('copy');
-      }catch(err){ ok = false; }
-      try{ if(ta){ document.body.removeChild(ta); } }catch(err3){}
-      if(ok){ done(); } else { manualCopy(); }
+        try{ ta.setSelectionRange(0, txt.length); }catch(err3){}
+        done = document.execCommand('copy');
+      }catch(err){ done = false; }
+      try{ if(ta){ document.body.removeChild(ta); } }catch(err4){}
+      // refocus the id field and keep it selected for manual Ctrl+C
+      el.focus();
+      try{ el.setSelectionRange(0, txt.length); }catch(err5){}
+      if(done){ ok(); } else { needManual(); }
     }
     if(navigator.clipboard && navigator.clipboard.writeText){
-      navigator.clipboard.writeText(txt).then(done, fallback);
+      navigator.clipboard.writeText(txt).then(ok, fallback);
     }else{
       fallback();
     }
