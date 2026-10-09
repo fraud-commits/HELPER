@@ -822,6 +822,40 @@ body.dark .dataTables_wrapper .dataTables_paginate .paginate_button:hover{
   color: var(--brand-ink) !important;
 }
 
+/* dark-mode: deterministic cell colors (no framework zebra can hide rows) */
+body.dark .dim-table > thead > tr > th,
+body.dark .table-roundTop > thead > tr > th,
+body.dark .table-bettop > thead > tr > th,
+body.dark .table-bettop > tfoot > tr > th,
+body.dark .table-footer th{
+  background-color: transparent !important;
+  box-shadow: none !important;
+  color: var(--ink);
+}
+body.dark .dim-table > tbody > tr > td,
+body.dark .table-roundTop > tbody > tr > td,
+body.dark .table-bettop > tbody > tr > td{
+  background-color: transparent !important;
+  box-shadow: none !important;
+  color: var(--ink);
+}
+body.dark .dim-table > tbody > tr:nth-of-type(odd) > td,
+body.dark .table-roundTop > tbody > tr:nth-of-type(odd) > td,
+body.dark .table-bettop > tbody > tr:nth-of-type(odd) > td{
+  background-color: rgba(255,255,255,0.035) !important;
+}
+body.dark table.dataTable tbody tr.odd,
+body.dark table.dataTable tbody tr.even{
+  background-color: transparent !important;
+}
+
+/* dark-mode: calmer break heatmap */
+body.dark .badge-sqr{ border-color: var(--line-strong); }
+body.dark .badge-sql-c{ background-color: #22352C !important; }
+body.dark .badge-skip-c{ background-color: #9A7B1E !important; }
+body.dark .badge-short-c{ background-color: #A85E1C !important; }
+body.dark .badge-long-c{ background-color: #B03A44 !important; }
+
 /* theme toggle in the player bar */
 .theme-toggle{
   border: 1px solid var(--line-2);
