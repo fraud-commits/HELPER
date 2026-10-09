@@ -1086,10 +1086,10 @@ RoundArry.sort(function(a, b){
 // any previous instances were already destroyed at the top of the refresh)
 // order: [] keeps the pre-sorted (Net descending) DOM order on first paint;
 // header arrows still sort on click as usual
-$('.table-dealer').DataTable({order: []});
-$('.table-table').DataTable({order: []});
-$('.table-game').DataTable({order: []});
-$('.table-roundTop').DataTable({order: []});
+$('.table-dealer').DataTable({order: [], autoWidth: false});
+$('.table-table').DataTable({order: [], autoWidth: false});
+$('.table-game').DataTable({order: [], autoWidth: false});
+$('.table-roundTop').DataTable({order: [], autoWidth: false});
 $('#table-table_wrapper, #table-game_wrapper').hide(); // inactive panes stay hidden with their controls
 
 
