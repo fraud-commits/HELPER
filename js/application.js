@@ -951,7 +951,11 @@ $('.WinProcent-bar').css('width', WinProcent.toFixed(2) + "%");
 
 function DealerTop (){
 
-  for(x = 0; x < RoundArry.length; x++){
+  // default order: Net descending — rounds rendered Net-highest first
+  let roundOrder = RoundArry.map(function(r, idx){ return idx; })
+    .sort(function(a, b){ return RoundArry[b].TotalRoundNet - RoundArry[a].TotalRoundNet; });
+  for(let k = 0; k < roundOrder.length; k++){
+    x = roundOrder[k];
     RoundTop(x)
     let element = DealerArry.find(e => e.DealerName === RoundArry[x].DealerName);
 if (element ) {
@@ -1006,6 +1010,8 @@ if (element ) {
     el.TotalNet += RoundArry[i].TotalRoundNet;
     el.RoundCount += 1;
   }
+  // default order: Net descending
+  GameTypeArry.sort(function(a, b){ return b.TotalNet - a.TotalNet; });
   for(i = 0; i < GameTypeArry.length; i++){
     $(".GameTypeTop").append(`
     <tr>
@@ -1055,11 +1061,12 @@ RoundArry.sort(function(a, b){
 
 // init AFTER all rows are appended (DealerTop fills Dealer/Table/Game/Round tables;
 // any previous instances were already destroyed at the top of the refresh)
-// data is pre-sorted by Net descending inside DealerTop / RoundTop
-$('.table-dealer').DataTable();
-$('.table-table').DataTable();
-$('.table-game').DataTable();
-$('.table-roundTop').DataTable();
+// order: [] keeps the pre-sorted (Net descending) DOM order on first paint;
+// header arrows still sort on click as usual
+$('.table-dealer').DataTable({order: []});
+$('.table-table').DataTable({order: []});
+$('.table-game').DataTable({order: []});
+$('.table-roundTop').DataTable({order: []});
 $('#table-table_wrapper, #table-game_wrapper').hide(); // inactive panes stay hidden with their controls
 
 
