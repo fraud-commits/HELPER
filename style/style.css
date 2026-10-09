@@ -774,3 +774,9 @@ border-color: #043927;
 .table-responsive .dim-table > tbody > tr > td,
 .table-responsive .table-roundTop > thead > tr > th,
 .table-responsive .table-roundTop > tbody > tr > td { padding-left: 6px; padding-right: 6px; }
+
+/* Session margin: dark brand green when positive, red when negative (toggled in JS) */
+.margin-bar.bar-pos { background-color: #043927; }
+.margin-bar.bar-neg { background-color: #e63757; }
+.session-dot.dot-pos { background-color: #043927; }
+.session-dot.dot-neg { background-color: #e63757; }

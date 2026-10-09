@@ -216,7 +216,10 @@ Trigger();
     maximumFractionDigits: 2
   })).toggleClass('neg-val', TotalNet < 0);
   $('.Margin').text(Margin.toFixed(2) + "%").toggleClass('neg-val', Margin < 0);
-  $('.margin-bar').css('width', Margin.toFixed(2) + "%");
+  // session margin: dark brand green when positive, red when negative
+  $('.margin-bar').toggleClass('bar-pos', Margin >= 0).toggleClass('bar-neg', Margin < 0)
+    .css('width', Math.abs(Margin).toFixed(2) + "%");
+  $('.session-dot').toggleClass('dot-pos', Margin >= 0).toggleClass('dot-neg', Margin < 0);
 
 
 
