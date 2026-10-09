@@ -1722,7 +1722,12 @@ function renderBetChart(){
     document.getElementById('chart-title').textContent = showNet ? 'Net Amount Chart' : 'Bet Amount Chart';
   }
 
+if(typeof Chart === 'undefined'){
+  $(".roulette-container").html('<p class="text-muted" style="padding:20px;">Chart failed: Chart.js library did not load (check network / CDN access).</p>');
+  return;
+}
 if(betChart){ try{ betChart.destroy(); }catch(e){} betChart = null; }
+try{
 betChart = new Chart(document.getElementById("bar-chart"), {
     type: 'bar',
     data: {
@@ -1777,6 +1782,9 @@ betChart = new Chart(document.getElementById("bar-chart"), {
         }
     }
 });
+} catch(err){
+  $(".roulette-container").html('<p class="text-muted" style="padding:20px;">Chart failed: ' + String((err && err.message) || err) + '</p>');
+}
 } // end renderBetChart
 
 // Bet / Net chart mode switcher (ChartMode declared above, before first render)
