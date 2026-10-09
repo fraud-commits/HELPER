@@ -1287,7 +1287,9 @@ function generateFindings(){
         ' (' + (maxRound.TotalRoundBet / avgBet).toFixed(1) + '× the average, round ' + maxRound.RoundId +
         ') — may indicate advantage play.');
   }
-  if(rounds >= 15 && negPct >= 20 && upPct >= 20){
+  // erratic = both systems strongly present with no clear dominance
+  // (a 56/24 martingale-style split is dominance, not chaos)
+  if(rounds >= 15 && negPct >= 25 && upPct >= 25 && Math.abs(negPct - upPct) < 25){
     add('warning', '<b>Erratic strategy:</b> no consistent staking system — negative pattern in ' + negPct.toFixed(0) +
         '% and positive pattern in ' + upPct.toFixed(0) + '% of rounds — could indicate testing, scripting or manipulation.');
   }
@@ -1490,7 +1492,7 @@ function analyzeBot(){
   // scripted play keeps the stake almost fixed; a human spreads it out
   if(betVar < 1.5 && avgBet > 0){ sig++; notes.push('stake almost never changes: max bet is only ' + (betVar > 0 ? betVar.toFixed(1) : '0') + '× the average'); }
   // very fast, steady cadence (well under the ~40 s table median)
-  if(cadence > 0 && cadence < 0.8){ sig++; notes.push('plays very fast: median ' + (cadence * 60).toFixed(0) + ' s between rounds (normal is ~40 s) — bots do not hesitate'); }
+  if(cadence > 0 && cadence < 0.5){ sig++; notes.push('plays very fast: median ' + (cadence * 60).toFixed(0) + ' s between rounds (normal is ~40 s) — bots do not hesitate'); }
   if(rounds > 100 && breakCnt === 0){ sig++; notes.push('no breaks at all in ' + rounds + ' rounds — a human usually pauses'); }
 
   let verdict, lvl;
