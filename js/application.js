@@ -1269,8 +1269,8 @@ function generateFindings(){
     }
   }
 
-  // ---- 2. Session result ----
-  if(TotalNet > 0){
+  // ---- 2. Session result: profit alone is routine — flag it only from €50k ----
+  if(TotalNet >= 50000){
     let lvl = (effWin >= 55 && decided >= 20) ? 'danger' : 'warning';
     add(lvl, '<b>Player finished in profit:</b> +' + eur(TotalNet) + ' (margin +' + Margin.toFixed(2) + '%).');
   }
