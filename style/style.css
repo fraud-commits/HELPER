@@ -598,9 +598,16 @@ th { white-space: nowrap; }
   display: none;
 }
 
-/* Negative values in red */
-.neg-val{
-  color: #e63757 !important;
+/* switchable statistics table (Dealer / Table / Game type) */
+.dim-switch{
+  padding: 2px 8px;
+  font-size: 11px;
+}
+
+.dim-switch.active{
+  background: #3f87f5;
+  color: #fff;
+  border-color: #3f87f5;
 }
 
 /* Winner report suggestions */

@@ -202,20 +202,55 @@
                 <div class="col-md-4">
                     <div class="card min-h">
                         <div class="card-body">
-                            <h5 class="card-title">Dealer statistics</h5>
-                            <table class="table-striped table table-hover table-DealerTop">
-                                <thead>
-                                    <tr>
-                                        <th>Name</th>
-                                        <th>Bet</th>
-                                        <th>Net</th>
-                                        <th>Count</th>
-                                        <th>Margin</th>
-                                    </tr>
-                                </thead>
-                                <tbody class="DealerTop ">
-                                </tbody>
-                            </table>
+                            <div class="d-flex justify-content-between align-items-center">
+                                <h5 class="card-title" id="dim-stat-title">Dealer statistics</h5>
+                                <div>
+                                    <button type="button" class="btn btn-sm btn-outline-secondary dim-switch active" data-dim="dealer">Dealer</button>
+                                    <button type="button" class="btn btn-sm btn-outline-secondary dim-switch" data-dim="table">Table</button>
+                                    <button type="button" class="btn btn-sm btn-outline-secondary dim-switch" data-dim="game">Game type</button>
+                                </div>
+                            </div>
+                            <div class="table-responsive">
+                                <table class="table-striped table table-hover dim-table" data-dim="dealer" id="table-dealer">
+                                    <thead>
+                                        <tr>
+                                            <th>Name</th>
+                                            <th>Bet</th>
+                                            <th>Net</th>
+                                            <th>Count</th>
+                                            <th>Margin</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody class="DealerTop ">
+                                    </tbody>
+                                </table>
+                                <table class="table-striped table table-hover dim-table" data-dim="table" id="table-table" style="display:none">
+                                    <thead>
+                                        <tr>
+                                            <th>Table</th>
+                                            <th>Bet</th>
+                                            <th>Net</th>
+                                            <th>Count</th>
+                                            <th>Margin</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody class="TableTop ">
+                                    </tbody>
+                                </table>
+                                <table class="table-striped table table-hover dim-table" data-dim="game" id="table-game" style="display:none">
+                                    <thead>
+                                        <tr>
+                                            <th>Game type</th>
+                                            <th>Bet</th>
+                                            <th>Net</th>
+                                            <th>Count</th>
+                                            <th>Margin</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody class="GameTypeTop ">
+                                    </tbody>
+                                </table>
+                            </div>
                         </div>
                     </div>
                 </div>

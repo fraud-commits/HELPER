@@ -268,7 +268,8 @@ function RoundTotla(indexStart,indexNext){
       DealerName: worksheetData[indexStart][DealerName].formattedValue,
       TableName: worksheetData[indexStart][TableName].formattedValue,
       Margin: 0,
-      RoundTime: worksheetData[indexStart][RoundTime].formattedValue
+      RoundTime: worksheetData[indexStart][RoundTime].formattedValue,
+      GameType: worksheetData[indexStart][GameType].formattedValue
 
     })
   }
@@ -309,6 +310,15 @@ function RoundTotla(indexStart,indexNext){
     })
   }
 
+  if (index4 === -1) {
+    TableArry.push({
+      TableName: worksheetData[indexStart][TableName].formattedValue,
+      TotalBet: 0,
+      TotalNet: 0,
+      RoundCount: 0
+    })
+  }
+
 
 
   let element = RoundArry.find(e => e.RoundId === worksheetData[indexStart][RoundID].formattedValue);
@@ -321,7 +331,16 @@ let element2 = DealerArry.find(e => e.DealerName === worksheetData[indexStart][D
 if (element2 ) {
   element2.TotalBet += worksheetData[indexStart][BetEUR].value;
   element2.TotalNet += worksheetData[indexStart][NetEUR].value;
- 
+  element2.RoundCount += 1;
+
+}
+
+// table statistics (per table id / game type)
+let element4 = TableArry.find(e => e.TableName === worksheetData[indexStart][TableName].formattedValue);
+if (element4) {
+  element4.TotalBet += worksheetData[indexStart][BetEUR].value;
+  element4.TotalNet += worksheetData[indexStart][NetEUR].value;
+  element4.RoundCount += 1;
 }
 
 let element3 = BetPositionArry.find(e => e.BetPosition === worksheetData[indexStart][BetPosition].formattedValue);
@@ -943,15 +962,54 @@ if (element ) {
       </tr>
       `
     )
-
-
-
   }
 
-  $('.table-DealerTop').DataTable()
-  $('.table-roundTop').DataTable()
+  // ---- per-table statistics (switchable with Dealer) ----
+  for(i = 0; i < TableArry.length; i++){
+    $(".TableTop").append(`
+    <tr>
+      <td>` + TableArry[i].TableName + `</td>
+      <td>` + TableArry[i].TotalBet.toFixed(2) + `</td>
+      <td` + negClass(TableArry[i].TotalNet) + `>` + TableArry[i].TotalNet.toFixed(2) + `</td>
+      <td>`+ TableArry[i].RoundCount +` </td>
+      <td` + negClass(TableArry[i].TotalNet) + `>`+ (TableArry[i].TotalNet.toFixed(2) /  TableArry[i].TotalBet.toFixed(2) * 100).toFixed(2) +` </td>
+      </tr>
+      `
+    )
+  }
 
+  // ---- per-game-type statistics ----
+  let GameTypeArry = [];
+  for(i = 0; i < RoundArry.length; i++){
+    let g = RoundArry[i].GameType || 'Unknown';
+    let el = GameTypeArry.find(e => e.GameType === g);
+    if(!el){
+      el = { GameType: g, TotalBet: 0, TotalNet: 0, RoundCount: 0 };
+      GameTypeArry.push(el);
+    }
+    el.TotalBet += RoundArry[i].TotalRoundBet;
+    el.TotalNet += RoundArry[i].TotalRoundNet;
+    el.RoundCount += 1;
+  }
+  for(i = 0; i < GameTypeArry.length; i++){
+    $(".GameTypeTop").append(`
+    <tr>
+      <td>` + GameTypeArry[i].GameType + `</td>
+      <td>` + GameTypeArry[i].TotalBet.toFixed(2) + `</td>
+      <td` + negClass(GameTypeArry[i].TotalNet) + `>` + GameTypeArry[i].TotalNet.toFixed(2) + `</td>
+      <td>`+ GameTypeArry[i].RoundCount +` </td>
+      <td` + negClass(GameTypeArry[i].TotalNet) + `>`+ (GameTypeArry[i].TotalNet.toFixed(2) /  GameTypeArry[i].TotalBet.toFixed(2) * 100).toFixed(2) +` </td>
+      </tr>
+      `
+    )
+  }
 }
+
+DealerTop()
+
+  $('.table-dealer').DataTable()
+  $('.table-table').DataTable()
+  $('.table-game').DataTable()
 
 function RoundTop(x){
 
@@ -1217,6 +1275,16 @@ $(document).off('click.findings', '#findings-toggle').on('click.findings', '#fin
 });
 
 generateFindings();
+
+// ---- switchable statistics table (Dealer / Table / Game type) ----
+$(document).off('click.dim', '.dim-switch').on('click.dim', '.dim-switch', function(){
+  let dim = $(this).data('dim');
+  $('.dim-switch').removeClass('active');
+  $(this).addClass('active');
+  $('.dim-table').hide();
+  $('.dim-table[data-dim="' + dim + '"]').show();
+  $('#dim-stat-title').text(dim === 'dealer' ? 'Dealer statistics' : (dim === 'table' ? 'Table statistics' : 'Game type statistics'));
+});
 
 // ========================= BOT / AUTOMATION CHECK =========================
 // Scripted-play signals for the CURRENT player, computed from the helper's
