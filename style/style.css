@@ -685,11 +685,16 @@ border-color: #043927;
 /* Winner report suggestions as a horizontal strip (one column per dropdown) */
 .ra-cols{
   margin-top: 10px;
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 48px;
 }
 
 .ra-col{
   border-left: 1px solid #edf2f9;
   padding-left: 14px;
+  flex: 0 1 auto;
+  min-width: 0;
 }
 
 .ra-col:first-child{
