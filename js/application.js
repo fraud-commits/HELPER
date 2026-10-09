@@ -731,6 +731,16 @@ else if (LongBreak == 1 && ShortBreak ==  2 ){
 
    BreakCounter()
 
+   // time order matters from here on: BetProgression compares each round with the
+   // NEXT played round, so RoundArry must be chronological (Tableau row order is not guaranteed)
+   RoundArry.sort(function(a, b){
+     let ta = parseRoundTime(a.RoundTime), tb = parseRoundTime(b.RoundTime);
+     if(!ta && !tb){ return 0; }
+     if(!ta){ return 1; }
+     if(!tb){ return -1; }
+     return ta.valueOf() - tb.valueOf();
+   });
+
 
 function BetProgression (){
 
