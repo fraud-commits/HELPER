@@ -358,6 +358,31 @@ console.log(BetPositionArry)
 const BREAK_RULES = { SKIP_MIN: 3, SKIP_MAX: 10, SHORT_MAX: 30 };
 let EstSkippedRounds = 0; // estimated number of game rounds missed during skips
 
+// Median gap between rounds on a table, measured on the sample file (38k rounds).
+// Used as a fallback when the player's own cadence cannot be estimated.
+const TYPICAL_ROUND_MIN = {
+  'Andar Bahar': 1.42, 'BacBo': 0.68, 'Baccarat': 0.53, 'Blackjack': 0.60,
+  'Casino Holdem': 0.93, 'Dragon Tiger': 0.47, 'Dynamite Roulette': 0.72,
+  'HiLo': 0.50, 'Land of Ra': 0.97, 'Lucky Wheelionaire': 1.00,
+  'Multiplier Auto Roulette': 0.70, 'Roulette': 0.68, 'Roulette Rouge': 0.77,
+  'Scalable Blackjack': 1.00, 'Sic Bo': 0.58, 'Teen Patti': 0.90
+};
+const DEFAULT_ROUND_MIN = 0.67; // 40 s, overall median in the sample
+
+function typicalRoundMin(roundsArr){
+  // most frequent table name among the player's rounds -> its measured median gap
+  let freq = {};
+  for(let i = 0; i < roundsArr.length; i++){
+    let t = String(roundsArr[i].TableName || '').replace(/^\s*\d+\s*-\s*/, '').trim();
+    if(!t){ continue; }
+    freq[t] = (freq[t] || 0) + 1;
+  }
+  let best = '', bestN = 0;
+  for(let k in freq){ if(freq[k] > bestN){ best = k; bestN = freq[k]; } }
+  if(best && TYPICAL_ROUND_MIN[best] !== undefined){ return TYPICAL_ROUND_MIN[best]; }
+  return DEFAULT_ROUND_MIN;
+}
+
 function parseRoundTime(t){
   let m = moment(t, ["DD-MM-YYYY HH:mm:ss a", "DD-MM-YYYY HH:mm:ss", "YYYY-MM-DD HH:mm:ss"], true);
   if(!m.isValid()){ m = moment(t); } // last resort: let moment guess the format
@@ -543,8 +568,10 @@ function BreakCounter(){
     if(g >= 0 && g < BREAK_RULES.SKIP_MIN){ gaps.push(g); }
   }
   gaps.sort(function(a, b){ return a - b; });
-  let cadence = gaps.length > 0 ? gaps[Math.floor(gaps.length / 2)] : 1.5; // default: one round per 1.5 min
-  if(cadence <= 0){ cadence = 1.5; }
+  // median gap of fast (sequential) intervals; if none, fall back to the
+  // measured median round time of the player's main table (sample file: 38k rounds)
+  let cadence = gaps.length > 0 ? gaps[Math.floor(gaps.length / 2)] : typicalRoundMin(RoundArry);
+  if(cadence <= 0){ cadence = DEFAULT_ROUND_MIN; }
 
   let prevValid = null;
 
