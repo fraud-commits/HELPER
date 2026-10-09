@@ -1262,11 +1262,13 @@ function computeWinnerAnswers(){
   let prog;
   if(rounds <= 1){ prog = 'Other one'; }
   else if(samePct >= 70){ prog = 'Flat wagers'; }
+  else if(chaosPct >= 20 && samePct >= 30){ prog = 'Chaotic, however at some passages flat wagers'; }
   else if(samePct >= 50){ prog = 'Mainly flat wagers'; }
   else if(martingeil >= 2 && negPct >= 50){ prog = 'Martingale betting system'; }
   else if(negPct >= 70){ prog = 'Negative progression'; }
   else if(negPct >= 50){ prog = 'Mainly negative betting progression'; }
   else if(negPct >= 30 && samePct >= 30){ prog = 'Negative progression, however at some passages flat'; }
+  else if(chaosPct >= 30 && negPct >= 30){ prog = 'Chaotic, at some passages negative progression is selected'; }
   else if(upPct2 >= 85){ prog = 'Positive progression'; }
   else if(upPct2 >= 60){ prog = 'Progressive betting'; }
   else if(chaosPct >= 85){ prog = 'Chaotic'; }
