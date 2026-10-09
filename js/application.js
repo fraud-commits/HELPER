@@ -1485,11 +1485,11 @@ function generateFindings(){
   }
   let dangerCnt = findings.filter(f => f.level === 'danger').length;
   let warnCnt   = findings.filter(f => f.level === 'warning').length;
+  // NOTE: no "No direct fraud indicators, but N point(s)..." bullet — it only
+  // echoes the header counter. Danger and all-clear verdicts stay (they instruct).
   if(dangerCnt > 0){
     findings.unshift({level: 'danger', text: '<b>' + dangerCnt + ' red flag(s) detected</b> — manual review recommended: check game logs, CCTV and dealer footage per Incident Response flow.'});
-  }else if(warnCnt > 0){
-    findings.unshift({level: 'warning', text: 'No direct fraud indicators, but ' + warnCnt + ' point(s) need attention.'});
-  }else{
+  }else if(warnCnt === 0){
     findings.unshift({level: 'success', text: 'No unusual patterns detected in this session — gameplay corresponds to normal indicators from the monitoring checklist.'});
   }
 
