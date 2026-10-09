@@ -99,12 +99,16 @@
             </div>
             <div class="row">
                 <div class="col-12">
-                    <div class="card">
+                    <div class="card" id="findings-card">
                         <div class="card-body">
                             <div class="d-flex justify-content-between align-items-center">
                                 <h5 class="findings-title">Key findings
                                     <span class="findings-note">automated checks based on the Risk Analyst Manual monitoring checklists</span>
                                 </h5>
+                                <div class="d-flex align-items-center">
+                                    <span id="findings-summary" class="findings-summary"></span>
+                                    <button type="button" id="findings-toggle" class="findings-toggle" title="Expand / collapse"><i class="bi bi-chevron-down"></i></button>
+                                </div>
                             </div>
                             <ul class="findings-list"></ul>
                         </div>
@@ -317,7 +321,7 @@
             </div>
             <div class="row">
                 <div class="col-12 text-center">
-                    <span class="ext-version">helper v2026-10-09d</span>
+                    <span class="ext-version">helper v2026-10-09e</span>
                 </div>
             </div>
         </div>

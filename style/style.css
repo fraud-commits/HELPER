@@ -578,6 +578,34 @@ th { white-space: nowrap; }
   .findings-list{ column-count: 1; }
 }
 
+/* Collapsible Key findings: summary in the header, collapsed by default */
+.findings-summary{
+  font-size: 12px;
+  font-weight: 500;
+  color: rgba(84,84,95,0.85);
+  white-space: nowrap;
+  margin-right: 8px;
+}
+
+.findings-toggle{
+  border: 1px solid #e3e9f2;
+  background: #ffffff;
+  color: #72849a;
+  border-radius: 4px;
+  padding: 2px 8px;
+  cursor: pointer;
+  line-height: 1.4;
+}
+
+.findings-toggle:hover{
+  background: #edf4fe;
+  color: #3f87f5;
+}
+
+#findings-card.collapsed .findings-list{
+  display: none;
+}
+
 /* Negative values in red */
 .neg-val{
   color: #e63757 !important;

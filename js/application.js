@@ -1171,7 +1171,28 @@ function generateFindings(){
                  '<i class="bi ' + icons[findings[i].level] + '"></i>' +
                  '<span>' + findings[i].text + '</span></li>');
   }
+
+  // ---- Collapsible panel: summary counts in the header, list collapsed by default ----
+  let attCnt = 0, noteCnt = 0;
+  for(let i = 0; i < findings.length; i++){
+    if(findings[i].level === 'danger' || findings[i].level === 'warning'){ attCnt++; }
+    else{ noteCnt++; }
+  }
+  let sumTxt = '';
+  if(attCnt > 0){ sumTxt += attCnt + ' need attention'; }
+  if(noteCnt > 0){ sumTxt += (sumTxt ? ' · ' : '') + noteCnt + ' note' + (noteCnt === 1 ? '' : 's'); }
+  if(!sumTxt){ sumTxt = 'no findings'; }
+  $('#findings-summary').text(sumTxt);
+  $('#findings-card').addClass('collapsed');
+  $('#findings-toggle i').attr('class', 'bi bi-chevron-down');
 }
+
+$(document).off('click.findings', '#findings-toggle').on('click.findings', '#findings-toggle', function(){
+  let $card = $('#findings-card');
+  $card.toggleClass('collapsed');
+  let collapsed = $card.hasClass('collapsed');
+  $(this).find('i').attr('class', collapsed ? 'bi bi-chevron-down' : 'bi bi-chevron-up');
+});
 
 generateFindings();
 
