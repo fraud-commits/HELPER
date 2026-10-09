@@ -83,7 +83,7 @@ margin-left: -15px;
   }
 
   .badge-primary {
-    background-color: #3f87f5;
+    background-color: #043927;
     color: #fff;
   }
 
@@ -112,7 +112,7 @@ margin-left: -15px;
   
 
   .bg-primary {
-    background-color: #3f87f5 !important;
+    background-color: #043927 !important;
   }
 
 
@@ -154,7 +154,7 @@ margin-left: -15px;
   }
 
   .bg-primary {
-    background-color: #3f87f5 !important;
+    background-color: #043927 !important;
   }
 
   .progress {
@@ -561,8 +561,8 @@ th { white-space: nowrap; }
 .finding-danger i  { color: #e63757; }
 .finding-warning { border-left-color: #f6b343; background: #fdf5e6; }
 .finding-warning i { color: #e8a020; }
-.finding-info    { border-left-color: #3f87f5; background: #edf4fe; }
-.finding-info i    { color: #3f87f5; }
+.finding-info    { border-left-color: #00987D; background: #e6f6f2; }
+.finding-info i    { color: #00987D; }
 .finding-success { border-left-color: #00c9a7; background: #e9faf6; }
 .finding-success i { color: #00c9a7; }
 
@@ -590,8 +590,8 @@ th { white-space: nowrap; }
 }
 
 .findings-toggle:hover{
-  background: #edf4fe;
-  color: #3f87f5;
+  background: #e6f6f2;
+  color: #043927;
 }
 
 #findings-card.collapsed .findings-list{
@@ -605,9 +605,9 @@ th { white-space: nowrap; }
 }
 
 .dim-switch.active{
-  background: #3f87f5;
+  background: #043927;
   color: #fff;
-  border-color: #3f87f5;
+  border-color: #043927;
 }
 
 /* Winner report suggestions */
@@ -710,8 +710,8 @@ th { white-space: nowrap; }
 }
 
 .ra-copy:hover{
-  background: #edf4fe;
-  color: #3f87f5;
+  background: #e6f6f2;
+  color: #043927;
 }
 
 /* Empty state (no player selected) */
