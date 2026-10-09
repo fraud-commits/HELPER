@@ -372,7 +372,8 @@ function RoundTotla(indexStart,indexNext){
       TableName: worksheetData[indexStart][TableName].formattedValue,
       Margin: 0,
       RoundTime: worksheetData[indexStart][RoundTime].formattedValue,
-      GameType: worksheetData[indexStart][GameType].formattedValue
+      GameType: worksheetData[indexStart][GameType].formattedValue,
+      Positions: {}
 
     })
   }
@@ -428,6 +429,9 @@ function RoundTotla(indexStart,indexNext){
   if (element) {
     element.TotalRoundBet += worksheetData[indexStart][BetEUR].value;
     element.TotalRoundNet += worksheetData[indexStart][NetEUR].value;
+    // per-round bet-position set (roulette layout coverage analysis)
+    if(!element.Positions){ element.Positions = {}; }
+    element.Positions[worksheetData[indexStart][BetPosition].formattedValue] = true;
 }
 
 let element2 = DealerArry.find(e => e.DealerName === worksheetData[indexStart][DealerName].formattedValue);
@@ -1235,6 +1239,43 @@ function BetPositionTop(){
 BetPositionTop()
 
 // ============================ KEY FINDINGS ============================
+
+// ---- Roulette layout coverage helpers (Evolution-style position names;
+// unknown/other providers' names map to [] and are simply not counted) ----
+const ROULETTE_POCKETS = 37; // single-zero wheel: 0–36
+const ROULETTE_COVER_RED = 34; // >= this many pockets in one round = low-risk flag
+const ROULETTE_REDS = [1,3,5,7,9,12,14,16,18,19,21,23,25,27,30,32,34,36];
+function rouletteRange(a, b){ let o = []; for(let n = a; n <= b; n++){ o.push(n); } return o; }
+function rouletteColumn(c){ let o = []; for(let n = c; n <= 36; n += 3){ o.push(n); } return o; }
+function rouletteNumbers(pos){
+  let p = String(pos || '').toUpperCase().replace(/\s+/g, '_');
+  if(p.indexOf('DOZEN_FIRST') === 0){ return rouletteRange(1, 12); }
+  if(p.indexOf('DOZEN_SECOND') === 0){ return rouletteRange(13, 24); }
+  if(p.indexOf('DOZEN_THIRD') === 0){ return rouletteRange(25, 36); }
+  if(p.indexOf('COLUMN_FIRST') === 0){ return rouletteColumn(1); }
+  if(p.indexOf('COLUMN_SECOND') === 0){ return rouletteColumn(2); }
+  if(p.indexOf('COLUMN_THIRD') === 0){ return rouletteColumn(3); }
+  if(p === 'RED'){ return ROULETTE_REDS.slice(); }
+  if(p === 'BLACK'){ return rouletteRange(1, 36).filter(function(n){ return ROULETTE_REDS.indexOf(n) === -1; }); }
+  if(p === 'EVEN'){ return rouletteRange(1, 18).map(function(n){ return n * 2; }); }
+  if(p === 'ODD'){ return rouletteRange(1, 18).map(function(n){ return n * 2 - 1; }); }
+  if(p === 'LOW' || p === '1_18'){ return rouletteRange(1, 18); }
+  if(p === 'HIGH' || p === '19_36'){ return rouletteRange(19, 36); }
+  let nums = p.match(/\d+/g);
+  if(!nums){ return []; }
+  nums = nums.map(Number);
+  if(p.indexOf('STREET_') === 0 && nums.length){ let r = nums[0]; return rouletteRange(3 * r - 2, 3 * r); }
+  if(p.indexOf('LINE_') === 0 && nums.length){ let r = nums[0]; return rouletteRange(3 * r - 2, 3 * r + 3); }
+  return nums.filter(function(n){ return n >= 0 && n <= 36; }); // straight / split / corner / basket
+}
+function rouletteCoveredCount(posObj){
+  let seen = {};
+  for(let k in posObj){
+    let arr = rouletteNumbers(k);
+    for(let i = 0; i < arr.length; i++){ seen[arr[i]] = true; }
+  }
+  return Object.keys(seen).length;
+}
 // Auto-generated analytical bullet points aligned with the Risk Analyst
 // Manual (Roulette Monitoring checklist, Betting Progressions, Dealer
 // Report guidelines). Levels: danger (red flag) > warning (needs
@@ -1388,6 +1429,25 @@ function generateFindings(){
   if(rounds < 15){
     add('info', 'Small sample: only ' + rounds + ' round(s) — conclusions are unreliable.');
   }
+
+  // ---- 9. Roulette layout coverage (low-risk / bonus-abuse play) ----
+  // counts distinct pockets (0–36) covered by one round's positions
+  (function(){
+    let maxCover = 0, maxCoverRound = null, coverRounds = 0;
+    for(let i = 0; i < rounds; i++){
+      let r = RoundArry[i];
+      if(!r || !/roulette/i.test(r.GameType || '')){ continue; }
+      let cov = rouletteCoveredCount(r.Positions);
+      if(cov > maxCover){ maxCover = cov; maxCoverRound = r; }
+      if(cov >= ROULETTE_COVER_RED){ coverRounds++; }
+    }
+    if(coverRounds > 0){
+      add(coverRounds >= 3 ? 'danger' : 'warning',
+          '<b>Low-risk roulette coverage:</b> ' + coverRounds + ' round(s) cover ' + ROULETTE_COVER_RED +
+          '+ of 37 pockets (max ' + maxCover + '/37 in round ' + maxCoverRound.RoundId +
+          ') — near-guaranteed outcome, typical bonus-abuse pattern.');
+    }
+  })();
 
   // ---- Bot / automation verdict (set by analyzeBot, runs before) ----
   if(typeof BotFinding !== 'undefined' && BotFinding){ add(BotFinding.level, BotFinding.text); }
