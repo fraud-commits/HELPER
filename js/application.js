@@ -1102,7 +1102,7 @@ BetPositionTop()
 
 function generateFindings(){
 
-  let $list = $('.findings-list');
+  let $list = $('#findings-card .findings-list');
   if(!$list.length){ return; } // panel is not present (e.g. index2.html)
   $list.empty();
 
@@ -1291,7 +1291,7 @@ $(document).off('click.findings', '#findings-toggle').on('click.findings', '#fin
   $(this).find('i').attr('class', collapsed ? 'bi bi-chevron-down' : 'bi bi-chevron-up');
 });
 
-let BotFinding = null; // set by analyzeBot(): {level, text} or null when clean
+let BotFinding = null; // set by analyzeBot(): {level, text} for the Key findings bullet
 analyzeBot();
 generateFindings();
 
@@ -1315,9 +1315,7 @@ $(document).off('click.dim', '.dim-switch').on('click.dim', '.dim-switch', funct
 
 function analyzeBot(){
 
-  let $list = $('#bot-list');
-  if(!$list.length){ return; } // panel is not present (e.g. index2.html)
-  $list.empty();
+  // pure computation: the result goes into Key findings via BotFinding (no own card)
 
   let rounds = RoundArry.length;
 
@@ -1370,17 +1368,9 @@ function analyzeBot(){
   else if(sig == 2){ verdict = 'Suspicious'; lvl = 'warning'; }
   else{ verdict = 'No'; lvl = 'success'; }
 
-  // shared with Key findings: a bullet only when automation is suspected/confirmed
-  if(verdict === 'No'){ BotFinding = null; }
+  // shared with Key findings: always a Yes / Suspicious / No line
+  if(verdict === 'No'){ BotFinding = {level: 'success', text: '<b>Bot / automation: No.</b> ' + (notes.length ? 'minor signals: ' + notes.join('; ') + '.' : 'no scripted-play signals.')}; }
   else{ BotFinding = {level: lvl, text: '<b>Bot / automation (' + verdict.toLowerCase() + '):</b> ' + notes.join('; ') + '.'}; }
-
-  // summary line in the card header
-  $('#bot-summary').text(verdict === 'No' ? 'No automation signs' : (verdict === 'Suspicious' ? 'Suspicious' : 'Automation signs'));
-
-  // render one verdict line + one line per triggered signal
-  let icons2 = {danger: 'bi-exclamation-octagon-fill', warning: 'bi-exclamation-triangle-fill',
-                info: 'bi-info-circle-fill', success: 'bi-check-circle-fill'};
-  $list.append('<li class="finding-' + lvl + '"><i class="bi ' + icons2[lvl] + '"></i><span><b>Bot check: ' + verdict + '.</b> ' + (notes.length ? notes.join('; ') + '.' : 'no scripted-play signals triggered.') + '</span></li>');
 }
 
 
