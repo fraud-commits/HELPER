@@ -1242,6 +1242,9 @@ function generateFindings(){
     add('info', 'Small sample: only ' + rounds + ' round(s) — conclusions are unreliable.');
   }
 
+  // ---- Bot / automation verdict (set by analyzeBot, runs before) ----
+  if(typeof BotFinding !== 'undefined' && BotFinding){ add(BotFinding.level, BotFinding.text); }
+
   // ---- Summary bullet (always first) ----
   let dangerCnt = findings.filter(f => f.level === 'danger').length;
   let warnCnt   = findings.filter(f => f.level === 'warning').length;
@@ -1288,6 +1291,8 @@ $(document).off('click.findings', '#findings-toggle').on('click.findings', '#fin
   $(this).find('i').attr('class', collapsed ? 'bi bi-chevron-down' : 'bi bi-chevron-up');
 });
 
+let BotFinding = null; // set by analyzeBot(): {level, text} or null when clean
+analyzeBot();
 generateFindings();
 
 // ---- switchable statistics table (Dealer / Table / Game type) ----
@@ -1365,6 +1370,10 @@ function analyzeBot(){
   else if(sig == 2){ verdict = 'Suspicious'; lvl = 'warning'; }
   else{ verdict = 'No'; lvl = 'success'; }
 
+  // shared with Key findings: a bullet only when automation is suspected/confirmed
+  if(verdict === 'No'){ BotFinding = null; }
+  else{ BotFinding = {level: lvl, text: '<b>Bot / automation (' + verdict.toLowerCase() + '):</b> ' + notes.join('; ') + '.'}; }
+
   // summary line in the card header
   $('#bot-summary').text(verdict === 'No' ? 'No automation signs' : (verdict === 'Suspicious' ? 'Suspicious' : 'Automation signs'));
 
@@ -1374,7 +1383,6 @@ function analyzeBot(){
   $list.append('<li class="finding-' + lvl + '"><i class="bi ' + icons2[lvl] + '"></i><span><b>Bot check: ' + verdict + '.</b> ' + (notes.length ? notes.join('; ') + '.' : 'no scripted-play signals triggered.') + '</span></li>');
 }
 
-analyzeBot();
 
 // ========================= END BOT / AUTOMATION CHECK =========================
 
