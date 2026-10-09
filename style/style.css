@@ -671,6 +671,15 @@ color: #e63757 !important;
 /* Bet amount chart: horizontal scroll for long sessions (canvas width set in JS) */
 .roulette-container{ overflow-x: auto; }
 
+/* Top cards (Financial data / Game Statistics): compact figures that never wrap,
+   so the narrowed 2/12 columns stay the same height */
+.Totalbet, .Totalnet,
+.total-round-cnt, .win-round-cnt, .tie-round-cnt, .loss-round-cnt{
+  white-space: nowrap;
+  font-size: 1.4rem;
+}
+.Margin, .WinProcent{ white-space: nowrap; }
+
 /* Winner report suggestions */
 .ra-list{
   margin-top: 12px;
