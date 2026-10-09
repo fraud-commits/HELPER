@@ -837,10 +837,10 @@ color: #e63757 !important;
 .table-responsive .table-roundTop > thead > tr > th,
 .table-responsive .table-roundTop > tbody > tr > td { padding-left: 6px; padding-right: 6px; }
 
-/* Session margin: dark brand green when positive, red when negative (toggled in JS) */
-.margin-bar.bar-pos { background-color: #043927; }
+/* Session margin: teal like Win ratio when positive, red when negative (toggled in JS) */
+.margin-bar.bar-pos { background-color: #00c9a7; }
 .margin-bar.bar-neg { background-color: #e63757; }
-.session-dot.dot-pos { background-color: #043927; }
+.session-dot.dot-pos { background-color: #00c9a7; }
 .session-dot.dot-neg { background-color: #e63757; }
 
 /* Diverging session-margin bar: zero in the centre, fill goes right (+) or left (−).
