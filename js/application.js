@@ -1287,6 +1287,43 @@ function generateFindings(){
     add('warning', '<b>Erratic strategy:</b> no consistent staking system — negative pattern in ' + negPct.toFixed(0) +
         '% and positive pattern in ' + upPct.toFixed(0) + '% of rounds — could indicate testing, scripting or manipulation.');
   }
+
+  // ---- 3b. Win / loss streaks (tilt vs system; ties skipped like in effWin) ----
+  (function(){
+    let seq = [];
+    for(let i = 0; i < rounds; i++){
+      if(RoundArry[i].TotalRoundNet !== 0){ seq.push({net: RoundArry[i].TotalRoundNet, bet: RoundArry[i].TotalRoundBet}); }
+    }
+    function longest(wantWin){
+      let best = {len: 0, avg: 0};
+      let curLen = 0, curSum = 0, curN = 0, prevBet = 0;
+      function flush(){
+        if(curLen > best.len){ best.len = curLen; best.avg = curN > 0 ? curSum / curN : 0; }
+      }
+      for(let i = 0; i < seq.length; i++){
+        let hit = wantWin ? seq[i].net > 0 : seq[i].net < 0;
+        if(hit){
+          if(curLen > 0 && prevBet > 0){ curSum += seq[i].bet / prevBet; curN++; }
+          curLen++;
+          prevBet = seq[i].bet;
+        }else{ flush(); curLen = 0; curSum = 0; curN = 0; prevBet = 0; }
+      }
+      flush();
+      return best;
+    }
+    let ls = longest(false), ws = longest(true);
+    if(ls.len >= 4){
+      let tilt = ls.avg >= 1.5;
+      add(tilt ? 'warning' : 'info',
+          '<b>Max loss streak: ' + ls.len + ' rounds</b>' +
+          (ls.avg > 0 ? ' (avg raise ' + ls.avg.toFixed(1) + '× per step)' : '') +
+          (tilt ? ' — escalating stakes while losing, looks like tilting.' : ' — stakes kept flat, disciplined chasing.'));
+    }
+    if(ws.len >= 5){
+      add('info', '<b>Max win streak: ' + ws.len + ' rounds</b>' +
+          (ws.avg > 0 ? ' (avg raise ' + ws.avg.toFixed(1) + '× per step)' : '') + '.');
+    }
+  })();
   if(samePct >= 70){
     add('success', 'Flat betting throughout the session — consistent with normal play.');
   }
