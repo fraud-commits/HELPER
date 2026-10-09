@@ -154,6 +154,19 @@ function Trigger(){
   $('.UserName').text(worksheetData[0][UserId].formattedValue);
   $('.CompanyCode').text(worksheetData[0][CompanyCode].formattedValue);
 
+  // BO player profile link: https://lfscbo.com/#lfs/player&id=<operator>:<player>
+  // raw .value (not formattedValue) so ids never pick up thousand separators etc.
+  function cellId(cell){ return (cell && cell.value !== undefined && cell.value !== null) ? String(cell.value) : String(cell ? cell.formattedValue : ''); }
+  let operatorId = cellId(worksheetData[0][CompanyCode]);
+  let playerId = cellId(worksheetData[0][UserId]);
+  $('.PlayerId').text(playerId);
+  $('.OperatorId').text(operatorId);
+  if(operatorId && playerId){
+    $('.bo-link').attr('href', 'https://lfscbo.com/#lfs/player&id=' + operatorId + ':' + playerId).show();
+  }else{
+    $('.bo-link').hide();
+  }
+
   for (var i = 0; i < worksheetData.length; i++) {
 
     indexStart = i;
