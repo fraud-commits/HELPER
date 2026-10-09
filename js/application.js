@@ -1759,9 +1759,16 @@ $(document).off('change.fingame', '#fin-game-filter').on('change.fingame', '#fin
 let ChartMode = 'bet';
 let betChart = null;
 
+// chart canvas sized by round count (~5px per bar); long sessions scroll
+// horizontally inside .roulette-container instead of squeezing to 1px bars
+function chartCanvasHTML(){
+  let w = Math.max(RoundArry.length * 5, 300);
+  return '<canvas id="bar-chart" width="' + w + '" height="168" style="height:168px;"></canvas>';
+}
+
   $("#bar-chart").remove();
 
-  $(".roulette-container").append('<canvas id="bar-chart" style="height: 168px;" ></canvas>');
+  $(".roulette-container").append(chartCanvasHTML());
   $(".roulette-container2").append('<canvas id="bar-chart2" style="height: 80px;" ></canvas>');
 
   renderBetChart();
@@ -1803,7 +1810,7 @@ betChart = new Chart(document.getElementById("bar-chart"), {
           if(native.stopPropagation){ native.stopPropagation(); } // keep the document click-away handler from closing it instantly
           chartTipShow(native.clientX || 0, native.clientY || 0, r);
         },
-        responsive: true,
+        responsive: false,
         maintainAspectRatio: false,
         scales: {
             x: {
@@ -1858,7 +1865,7 @@ function setChartMode(mode){
     .attr('aria-checked', isNet ? 'true' : 'false');
   chartTipHide();
   $('#bar-chart').remove();
-  $('.roulette-container').append('<canvas id="bar-chart" style="height: 168px;" ></canvas>');
+  $('.roulette-container').append(chartCanvasHTML());
   renderBetChart();
 }
 $(document).off('click.chartmode', '.ct-opt').on('click.chartmode', '.ct-opt', function(){
