@@ -1037,6 +1037,8 @@ body.dark .badge-long-c{ background-color: #B03A44 !important; }
 .margin-bar.bar-neg { background-color: var(--red); }
 .session-dot.dot-pos { background-color: var(--teal); }
 .session-dot.dot-neg { background-color: var(--red); }
+/* Win ratio bar follows the number: red when critical */
+.WinProcent-bar.bar-neg { background-color: var(--red); }
 
 /* Diverging session-margin bar: zero in the centre, fill goes right (+) or left (−).
    Scale is clamped to ±100% in JS, so 100% fills exactly half the track. */
