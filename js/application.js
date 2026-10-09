@@ -391,18 +391,18 @@ function gapTipShow(el){
   let from = $el.attr('data-from') || '';
   let to = $el.attr('data-to') || '';
   let meta = $el.attr('data-meta') || '';
-  // readonly inputs: click natively selects the text (works even if JS copy is blocked),
-  // onfocus selects via inline handler as well so no framework is needed for selection
-  function idField(v){
-    return '<input class="gap-copy" readonly="readonly" value="' + v.replace(/"/g, '&quot;') + '" data-round="' + v.replace(/"/g, '&quot;') + '" size="' + Math.max(v.length, 4) + '" onfocus="this.select()" title="click, then Ctrl+C">';
+  // plain text, not an input: mouse selection + right-click → Copy works in embedded Tableau,
+  // Ctrl+C there does not. JS copy stays as a bonus where the browser allows it.
+  function idText(v){
+    return '<span class="gap-copy" data-round="' + v.replace(/"/g, '&quot;') + '" title="select with the mouse, right-click → Copy">' + v + '</span>';
   }
   let ids = '';
-  if(from){ ids += idField(from); }
-  if(to){ ids += ' <span class="gap-arrow">→</span> ' + idField(to); }
+  if(from){ ids += idText(from); }
+  if(to){ ids += ' <span class="gap-arrow">→</span> ' + idText(to); }
   tip.html(
     '<div class="gap-tip-ids">' + ids + '</div>' +
     '<div class="gap-tip-meta">' + meta + '</div>' +
-    '<div class="gap-tip-hint">click a round id to copy · click the square to fix</div>'
+    '<div class="gap-tip-hint">select the id with the mouse, right-click → Copy · click the square to fix</div>'
   );
   tip.addClass('show');
   gapTipPosition(el);
@@ -484,22 +484,20 @@ $(document)
   })
   .off('click.gapcopy', '.gap-copy')
   .on('click.gapcopy', '.gap-copy', function(e){
+    // IDs are plain text so the analyst can select them with the mouse and
+    // right-click -> Copy (that works in the embedded browser); Ctrl+C there is blocked.
+    // A JS copy attempt stays as a bonus where the browser allows it.
     e.stopPropagation();
-    let el = this;
-    let $input = $(el);
-    let txt = $input.val() || $input.attr('data-round') || '';
-    el.focus();
-    try{ el.select(); }catch(err){}
-    try{ el.setSelectionRange(0, txt.length); }catch(err2){}
+    let $span = $(this);
+    let txt = $span.attr('data-round') || $span.text();
     function setHint(t){ $('#gap-tip .gap-tip-hint').text(t); }
     function ok(){
-      $input.addClass('copied');
+      $span.addClass('copied');
       setHint('copied to clipboard ✓');
-      setTimeout(function(){ $input.removeClass('copied'); }, 1500);
+      setTimeout(function(){ $span.removeClass('copied'); }, 1500);
     }
     function needManual(){
-      // text is already natively selected in the field — the analyst just presses Ctrl+C
-      setHint('ID selected — press Ctrl+C');
+      setHint('clipboard is blocked — select the id with the mouse, right-click → Copy');
     }
     function fallback(){
       let done = false, ta = null;
@@ -518,9 +516,6 @@ $(document)
         done = document.execCommand('copy');
       }catch(err){ done = false; }
       try{ if(ta){ document.body.removeChild(ta); } }catch(err4){}
-      // refocus the id field and keep it selected for manual Ctrl+C
-      el.focus();
-      try{ el.setSelectionRange(0, txt.length); }catch(err5){}
       if(done){ ok(); } else { needManual(); }
     }
     if(navigator.clipboard && navigator.clipboard.writeText){
@@ -1278,7 +1273,7 @@ function computeWinnerAnswers(){
   else if(chaosPct >= 50){ prog = 'Mainly chaotic'; }
   else{ prog = 'Chaotic wagers, regardless to previous game outcome'; }
 
-  // Bet ramp => "Ramping ( Card counter )" only for a clear late spike
+  // Bet ramp => "Ramping ( Card counter )" only for a clear late spike AFTER A WIN
   let progWhy;
   if(rounds <= 1){ progWhy = 'only 1 round in the session'; }
   else{
@@ -1287,9 +1282,11 @@ function computeWinnerAnswers(){
   if(rounds >= 10 && avgBetSafe() > 0){
     let maxI = 0;
     for(let i = 0; i < rounds; i++){ if(RoundArry[i].TotalRoundBet > RoundArry[maxI].TotalRoundBet){ maxI = i; } }
-    if(RoundArry[maxI].TotalRoundBet >= 4 * avgBetSafe() && maxI > rounds / 2 && prog.indexOf('Chaotic') === 0){
+    if(RoundArry[maxI].TotalRoundBet >= 4 * avgBetSafe() && maxI > rounds / 2 &&
+       RoundArry[maxI].TotalRoundNet > 0 && prog.indexOf('Chaotic') === 0){
+      // ramp after a WIN = card counter; ramp after losses = chasing (negative progression), not counting
       prog = 'Ramping ( Card counter )';
-      progWhy = 'max round bet ' + eur(RoundArry[maxI].TotalRoundBet) + ' is ' + (RoundArry[maxI].TotalRoundBet / avgBetSafe()).toFixed(1) + '× the average (' + eur(avgBetSafe()) + '), round ' + RoundArry[maxI].RoundId + ' in the 2nd half of the session';
+      progWhy = 'max round bet ' + eur(RoundArry[maxI].TotalRoundBet) + ' is ' + (RoundArry[maxI].TotalRoundBet / avgBetSafe()).toFixed(1) + '× the average (' + eur(avgBetSafe()) + '), round ' + RoundArry[maxI].RoundId + ' (won) in the 2nd half of the session';
     }
   }
   function avgBetSafe(){ return rounds > 0 ? TotalBet / rounds : 0; }

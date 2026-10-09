@@ -317,28 +317,20 @@ margin: 1px;
   }
 
   .gap-copy{
-    background: transparent;
-    border: none;
-    outline: none;
+    background: none;
+    border: 0;
     padding: 0;
     margin: 0;
     color: #ffd479;
     font: inherit;
-    cursor: pointer;
+    cursor: text;
+    user-select: text;
     text-decoration: underline;
     text-underline-offset: 2px;
   }
 
   .gap-copy:hover{
     color: #ffffff;
-  }
-
-  .gap-copy:focus{
-    background: #1e1e1e;
-    border: 1px solid #6b6b6b;
-    border-radius: 3px;
-    text-decoration: none;
-    padding: 0 3px;
   }
 
   .gap-copy.copied{
