@@ -785,3 +785,9 @@ border-color: #043927;
 .margin-bar.bar-neg { background-color: #e63757; }
 .session-dot.dot-pos { background-color: #043927; }
 .session-dot.dot-neg { background-color: #e63757; }
+
+/* Diverging session-margin bar: zero in the centre, fill goes right (+) or left (−).
+   Scale is clamped to ±100% in JS, so 100% fills exactly half the track. */
+.margin-track { position: relative; height: 6px; background: #edf2f9; border-radius: 3px; overflow: hidden; }
+.margin-zero { position: absolute; left: 50%; top: 0; bottom: 0; width: 2px; margin-left: -1px; background: #c4cfdd; }
+.margin-fill { position: absolute; top: 0; bottom: 0; }

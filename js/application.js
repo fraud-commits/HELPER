@@ -219,9 +219,12 @@ Trigger();
     maximumFractionDigits: 2
   })).toggleClass('neg-val', TotalNet < 0);
   $('.Margin').text(Margin.toFixed(2) + "%").toggleClass('neg-val', Margin < 0);
-  // session margin: dark brand green when positive, red when negative
-  $('.margin-bar').toggleClass('bar-pos', Margin >= 0).toggleClass('bar-neg', Margin < 0)
-    .css('width', Math.abs(Margin).toFixed(2) + "%");
+  // session margin: dark brand green when positive, red when negative;
+  // diverging bar from the centre zero (±100% scale clamped, 100% = half the track)
+  let mClamped = Math.max(-100, Math.min(100, Margin));
+  let mBar = $('.margin-bar').toggleClass('bar-pos', Margin >= 0).toggleClass('bar-neg', Margin < 0);
+  if(mClamped >= 0){ mBar.css({left: '50%', width: (mClamped / 2) + '%'}); }
+  else{ mBar.css({left: (50 + mClamped / 2) + '%', width: (-mClamped / 2) + '%'}); }
   $('.session-dot').toggleClass('dot-pos', Margin >= 0).toggleClass('dot-neg', Margin < 0);
 
 
