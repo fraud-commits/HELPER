@@ -355,6 +355,31 @@ margin: 1px;
     opacity: .55;
   }
 
+  /* chart bar tooltip: white card, dark-green round id */
+  .gap-tip.chart-tip{
+    background: #ffffff;
+    color: #2a2a2a;
+    border: 1px solid #edf2f9;
+    box-shadow: 0 4px 14px rgba(4,57,39,.15);
+  }
+  .chart-tip .gap-tip-ids{
+    color: #043927;
+    font-weight: 700;
+  }
+  .chart-tip .gap-copy{
+    color: #043927;
+  }
+  .chart-tip .gap-copy:hover{
+    color: #00987D;
+  }
+  .chart-tip .gap-copy.copied{
+    color: #00987D;
+    text-decoration: none;
+  }
+  .chart-tip .gap-tip-meta{
+    color: #53535f;
+  }
+
   .avatar {
     font-size: .875rem;
     text-align: center;

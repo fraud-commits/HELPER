@@ -33,6 +33,8 @@ let DashGameFilter = '__all';
 // chart click-tooltip element (declared here: chartTipHide() runs at refresh
 // top, long before the chart section below — late `let` would throw TDZ).
 let $chartTip = null;
+// pinned round id (click) vs transient hover preview; last round shown (rebuild guard)
+let chartTipPinned = null, chartTipFor = null;
 setTimeout(function(){
   if(!booted){
     showExtError('Tableau did not return data in 15s. Check: 1) the fraud sheet is on this dashboard, 2) Player Id / Timestamp parameters are set, 3) the extension was re-added from the current .trex — then Reload.');
@@ -534,8 +536,7 @@ function gapTipShow(el){
   if(to){ ids += ' <span class="gap-arrow">→</span> ' + idText(to); }
   tip.html(
     '<div class="gap-tip-ids">' + ids + '</div>' +
-    '<div class="gap-tip-meta">' + meta + '</div>' +
-    '<div class="gap-tip-hint">select the id with the mouse, right-click → Copy · click the square to fix</div>'
+    '<div class="gap-tip-meta">' + meta + '</div>'
   );
   tip.addClass('show');
   gapTipPosition(el);
@@ -1815,6 +1816,15 @@ betChart = new Chart(document.getElementById("bar-chart"), {
           if(!r){ return; }
           let native = (evt && evt.native) || {};
           if(native.stopPropagation){ native.stopPropagation(); } // keep the document click-away handler from closing it instantly
+          chartTipPinned = r.RoundId;
+          chartTipShow(native.clientX || 0, native.clientY || 0, r);
+        },
+        onHover: function(evt, elements){
+          if(chartTipPinned){ return; } // pinned tip stays until click elsewhere
+          if(!elements || !elements.length){ chartTipHide(); return; }
+          let r = RoundArry[elements[0].index];
+          if(!r){ return; }
+          let native = (evt && evt.native) || {};
           chartTipShow(native.clientX || 0, native.clientY || 0, r);
         },
         responsive: false,
@@ -1894,10 +1904,13 @@ function chartTipEnsure(){
 }
 function chartTipShow(clientX, clientY, round){
   let tip = chartTipEnsure();
-  tip.html(
-    '<div class="gap-tip-ids">Round <span class="gap-copy" data-round="' + String(round.RoundId).replace(/"/g, '&quot;') + '">' + round.RoundId + '</span></div>' +
-    '<div class="gap-tip-meta">Bet &euro;' + round.TotalRoundBet.toFixed(2) + ' &middot; Net &euro;' + round.TotalRoundNet.toFixed(2) + '</div>'
-  );
+  if(chartTipFor !== round.RoundId){
+    tip.html(
+      '<div class="gap-tip-ids">Round <span class="gap-copy" data-round="' + String(round.RoundId).replace(/"/g, '&quot;') + '">' + round.RoundId + '</span></div>' +
+      '<div class="gap-tip-meta">Bet &euro;' + round.TotalRoundBet.toFixed(2) + ' &middot; Net &euro;' + round.TotalRoundNet.toFixed(2) + '</div>'
+    );
+    chartTipFor = round.RoundId;
+  }
   tip.addClass('show');
   let w = tip[0].offsetWidth, h = tip[0].offsetHeight;
   let vw = document.documentElement.clientWidth;
@@ -1909,6 +1922,8 @@ function chartTipShow(clientX, clientY, round){
 }
 function chartTipHide(){
   if($chartTip){ $chartTip.removeClass('show'); }
+  chartTipPinned = null;
+  chartTipFor = null;
 }
 $(document).off('click.charttip-out').on('click.charttip-out', function(e){
   if($(e.target).closest('#chart-tip').length){ return; }
