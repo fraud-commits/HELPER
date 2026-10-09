@@ -28,6 +28,9 @@ function fail(msg){ throw new Error(msg); }
 // Watchdog: if Tableau never answers with data (blocked extension, missing
 // sheet, unset filters), say so instead of leaving eternal zeros/dashes.
 let booted = false;
+// chart click-tooltip element (declared here: chartTipHide() runs at refresh
+// top, long before the chart section below — late `let` would throw TDZ).
+let $chartTip = null;
 setTimeout(function(){
   if(!booted){
     showExtError('Tableau did not return data in 15s. Check: 1) the fraud sheet is on this dashboard, 2) Player Id / Timestamp parameters are set, 3) the extension was re-added from the current .trex — then Reload.');
@@ -1862,7 +1865,6 @@ $(document).off('click.chartmode-sw', '.ct-switch').on('click.chartmode-sw', '.c
 // Click a chart bar -> fixed DOM tooltip with a selectable Round ID
 // (canvas tooltips cannot be selected; same copy pattern as the break heat-map:
 // select with the mouse, right-click -> Copy — Tableau blocks the clipboard API).
-let $chartTip = null;
 function chartTipEnsure(){
   if(!$chartTip || !$chartTip.length){
     $chartTip = $('<div class="gap-tip chart-tip" id="chart-tip"></div>');
