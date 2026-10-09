@@ -1362,13 +1362,13 @@ function analyzeBot(){
   let sig = 0;
   let notes = [];
 
-  if(rounds > 300){ sig++; notes.push('volume: ' + rounds + ' rounds (> 300)'); }
-  if(entropy < 2.5 && distinctTypes > 0){ sig++; notes.push('low bet-type entropy: ' + entropy.toFixed(2) + ' bits across ' + distinctTypes + ' position(s)'); }
+  if(rounds > 300){ sig++; notes.push('very long session: ' + rounds + ' rounds (> 300) — bots can play for hours without tiring'); }
+  if(entropy < 2.5 && distinctTypes > 0){ sig++; notes.push('few repeating bets: only ' + distinctTypes + ' bet type(s) used (' + entropy.toFixed(2) + ' bits) — bots stick to the same pattern'); }
   // scripted play keeps the stake almost fixed; a human spreads it out
-  if(betVar < 1.5 && avgBet > 0){ sig++; notes.push('almost constant stake: max ' + (betVar > 0 ? betVar.toFixed(1) : '0') + '× the average'); }
+  if(betVar < 1.5 && avgBet > 0){ sig++; notes.push('stake almost never changes: max bet is only ' + (betVar > 0 ? betVar.toFixed(1) : '0') + '× the average'); }
   // very fast, steady cadence (well under the ~40 s table median)
-  if(cadence > 0 && cadence < 0.8){ sig++; notes.push('very fast cadence: median ' + (cadence * 60).toFixed(0) + ' s between rounds'); }
-  if(rounds > 100 && breakCnt === 0){ sig++; notes.push('no breaks in ' + rounds + ' rounds'); }
+  if(cadence > 0 && cadence < 0.8){ sig++; notes.push('plays very fast: median ' + (cadence * 60).toFixed(0) + ' s between rounds (normal is ~40 s) — bots do not hesitate'); }
+  if(rounds > 100 && breakCnt === 0){ sig++; notes.push('no breaks at all in ' + rounds + ' rounds — a human usually pauses'); }
 
   let verdict, lvl;
   if(sig >= 3){ verdict = 'Yes'; lvl = 'danger'; }
@@ -1376,7 +1376,7 @@ function analyzeBot(){
   else{ verdict = 'No'; lvl = 'success'; }
 
   // shared with Key findings: always a Yes / Suspicious / No line
-  if(verdict === 'No'){ BotFinding = {level: 'success', text: '<b>Bot / automation: No.</b> ' + (notes.length ? 'minor signals: ' + notes.join('; ') + '.' : 'no scripted-play signals.')}; }
+  if(verdict === 'No'){ BotFinding = {level: 'success', text: '<b>Bot / automation: No.</b> ' + (notes.length ? 'Not a bot, but note: ' + notes.join('; ') + '.' : 'No signs of scripted play.')}; }
   else{ BotFinding = {level: lvl, text: '<b>Bot / automation (' + verdict.toLowerCase() + '):</b> ' + notes.join('; ') + '.'}; }
 }
 
