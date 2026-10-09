@@ -826,9 +826,9 @@ function BetProgression (){
       same += 1; //Flat
     }else if(nextBet > curBet && curNet <= 0){
       // raise after a loss → negative pattern (any size, not just 2x);
-      // back-to-back 2x+ raises after losses tracked as Martingale
-      if(curBet * 2 <= nextBet && RoundArry[next].TotalRoundNet <= 0 &&
-         RoundArry[next].TotalRoundBet * 2 <= RoundArry[nextn].TotalRoundBet){
+      // back-to-back (2x ±2%, rounding counts) raises after losses tracked as Martingale
+      if(curBet * 1.96 <= nextBet && RoundArry[next].TotalRoundNet <= 0 &&
+         RoundArry[next].TotalRoundBet * 1.96 <= RoundArry[nextn].TotalRoundBet){
         martingeil += 1; // Martingale
       }else{
         negativ += 1; // Negative
