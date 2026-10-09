@@ -1047,6 +1047,7 @@ $('.table-dealer').DataTable();
 $('.table-table').DataTable();
 $('.table-game').DataTable();
 $('.table-roundTop').DataTable();
+$('#table-table_wrapper, #table-game_wrapper').hide(); // inactive panes stay hidden with their controls
 
 
 function BetPositionTop(){
@@ -1295,7 +1296,9 @@ $(document).off('click.dim', '.dim-switch').on('click.dim', '.dim-switch', funct
   $('.dim-switch').removeClass('active');
   $(this).addClass('active');
   $('.dim-table').hide();
+  $('#table-dealer_wrapper, #table-table_wrapper, #table-game_wrapper').hide();
   $('.dim-table[data-dim="' + dim + '"]').show();
+  $('#table-' + dim + '_wrapper').show();
   $('#dim-stat-title').text(dim === 'dealer' ? 'Dealer statistics' : (dim === 'table' ? 'Table statistics' : 'Game type statistics'));
   try{ $(".dim-table[data-dim='" + dim + "']").DataTable().columns.adjust(); }catch(e){}
 });
