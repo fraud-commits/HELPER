@@ -402,6 +402,22 @@ tbody {
     display: block;
     max-height: 300px;
     overflow: auto;
+    scrollbar-width: thin;
+    scrollbar-color: #c4cfdd transparent;
+}
+tbody::-webkit-scrollbar{
+    width: 6px;
+    height: 6px;
+}
+tbody::-webkit-scrollbar-track{
+    background: transparent;
+}
+tbody::-webkit-scrollbar-thumb{
+    background: #c4cfdd;
+    border-radius: 3px;
+}
+tbody::-webkit-scrollbar-thumb:hover{
+    background: #043927;
 }
 thead, tbody tr {
     display: table;
