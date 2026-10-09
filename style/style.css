@@ -744,7 +744,8 @@ color: #e63757 !important;
   margin-top: 10px;
   display: flex;
   flex-wrap: nowrap;
-  gap: 48px;
+  justify-content: space-between;
+  gap: 24px;
 }
 
 .ra-col{
