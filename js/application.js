@@ -1815,6 +1815,7 @@ betChart = new Chart(document.getElementById("bar-chart"), {
                 display: false
             },
             tooltip: {
+                enabled: false, // single tooltip policy: only our DOM popup (copyable) shows, on bar click
                 callbacks: {
                     title: function (tooltipItems) {
 
@@ -1876,8 +1877,7 @@ function chartTipShow(clientX, clientY, round){
   let tip = chartTipEnsure();
   tip.html(
     '<div class="gap-tip-ids">Round <span class="gap-copy" data-round="' + String(round.RoundId).replace(/"/g, '&quot;') + '">' + round.RoundId + '</span></div>' +
-    '<div class="gap-tip-meta">Bet &euro;' + round.TotalRoundBet.toFixed(2) + ' &middot; Net &euro;' + round.TotalRoundNet.toFixed(2) + '</div>' +
-    '<div class="gap-tip-hint">select the id with the mouse, right-click &rarr; Copy &middot; click elsewhere to close</div>'
+    '<div class="gap-tip-meta">Bet &euro;' + round.TotalRoundBet.toFixed(2) + ' &middot; Net &euro;' + round.TotalRoundNet.toFixed(2) + '</div>'
   );
   tip.addClass('show');
   let w = tip[0].offsetWidth, h = tip[0].offsetHeight;
