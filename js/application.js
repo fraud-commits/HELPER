@@ -8,13 +8,20 @@ let valueColumnNumber = null;
 
 // Visible diagnosis: any uncaught crash is shown in the empty-state panel
 // instead of leaving a silent dashboard full of dashes.
-window.addEventListener('error', function(e){
+// NOTE: Tableau data callbacks run inside promises, so both 'error' and
+// 'unhandledrejection' must be trapped.
+function showExtError(msg){
   try{
     $('#dashboard-content').hide();
     $('#empty-state h4').text('Extension error');
-    $('#empty-state p').text(String((e && e.message) || e));
+    $('#empty-state p').text(String(msg));
     $('#empty-state').css('display', 'flex');
   }catch(_){}
+}
+window.addEventListener('error', function(e){ showExtError((e && e.message) || e); });
+window.addEventListener('unhandledrejection', function(e){
+  let r = e && e.reason;
+  showExtError((r && r.message) || r || e);
 });
 function fail(msg){ throw new Error(msg); }
 
