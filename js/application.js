@@ -1767,10 +1767,12 @@ $(document).off('change.dashgame', '#dash-game-filter').on('change.dashgame', '#
 let ChartMode = 'bet';
 let betChart = null;
 
-// chart canvas sized by round count (~5px per bar); long sessions scroll
-// horizontally inside .roulette-container instead of squeezing to 1px bars
+// chart canvas: at least as wide as its card (bars fill the window),
+// wider (~5px per bar) with horizontal scroll when there are many rounds
 function chartCanvasHTML(){
-  let w = Math.max(RoundArry.length * 5, 300);
+  let avail = 0;
+  try{ avail = $('.roulette-container').first().innerWidth() || 0; }catch(e){}
+  let w = Math.max(RoundArry.length * 5, avail, 300);
   return '<canvas id="bar-chart" width="' + w + '" height="168" style="height:168px;"></canvas>';
 }
 
