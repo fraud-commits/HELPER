@@ -1447,6 +1447,12 @@ $(document).off('click', '.ra-copy').on('click', '.ra-copy', function(){
     btn.find('i').attr('class', 'bi bi-check');
     setTimeout(function(){ btn.find('i').attr('class', 'bi bi-clipboard'); }, 1200);
   }
+  function needManual(){
+    // clipboard is blocked (embedded Tableau browser): the analyst selects the value with the mouse and presses Ctrl+C
+    btn.find('i').attr('class', 'bi bi-exclamation-triangle');
+    btn.attr('title', 'Clipboard is blocked — select the value with the mouse and press Ctrl+C');
+    setTimeout(function(){ btn.find('i').attr('class', 'bi bi-clipboard'); }, 2500);
+  }
 
   if(navigator.clipboard && navigator.clipboard.writeText){
     navigator.clipboard.writeText(text).then(done, function(){ fallbackCopy(); });
@@ -1455,12 +1461,23 @@ $(document).off('click', '.ra-copy').on('click', '.ra-copy', function(){
   }
 
   function fallbackCopy(){
-    let ta = document.createElement('textarea');
-    ta.value = text;
-    document.body.appendChild(ta);
-    ta.select();
-    try{ document.execCommand('copy'); done(); }catch(e){}
-    document.body.removeChild(ta);
+    let ok = false, ta = null;
+    try{
+      ta = document.createElement('textarea');
+      ta.value = text;
+      ta.setAttribute('readonly', '');
+      ta.style.position = 'fixed';
+      ta.style.top = '0';
+      ta.style.left = '0';
+      ta.style.opacity = '0';
+      document.body.appendChild(ta);
+      ta.focus();
+      ta.select();
+      try{ ta.setSelectionRange(0, text.length); }catch(err2){}
+      ok = document.execCommand('copy');
+    }catch(e){ ok = false; }
+    try{ if(ta){ document.body.removeChild(ta); } }catch(err3){}
+    if(ok){ done(); } else { needManual(); }
   }
 });
 
