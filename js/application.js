@@ -1297,8 +1297,13 @@ function generateFindings(){
     add('success', 'Flat betting throughout the session — consistent with normal play.');
   }
   if(negPct >= 30){
-    add('info', 'Negative progression (Martingale-style raise after losses) in ' + negPct.toFixed(0) +
-        '% of rounds — acceptable for roulette if other indicators are clean.');
+    if(martingeil >= 2){
+      add('info', 'Martingale betting system (doubling stakes after losses): ' + martingeil +
+          ' doubling step(s), negative pattern in ' + negPct.toFixed(0) + '% of rounds.');
+    }else{
+      add('info', 'Negative progression (raises stakes after losses) in ' + negPct.toFixed(0) +
+          '% of rounds — no doubling chains, acceptable for roulette if other indicators are clean.');
+    }
   }
   if(upPct >= 50){
     add('info', 'Positive progression (raises after wins) in ' + upPct.toFixed(0) + '% of rounds.');
