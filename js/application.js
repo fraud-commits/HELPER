@@ -25,6 +25,15 @@ window.addEventListener('unhandledrejection', function(e){
 });
 function fail(msg){ throw new Error(msg); }
 
+// Watchdog: if Tableau never answers with data (blocked extension, missing
+// sheet, unset filters), say so instead of leaving eternal zeros/dashes.
+let booted = false;
+setTimeout(function(){
+  if(!booted){
+    showExtError('Tableau did not return data in 15s. Check: 1) the fraud sheet is on this dashboard, 2) Player Id / Timestamp parameters are set, 3) the extension was re-added from the current .trex — then Reload.');
+  }
+}, 15000);
+
 
 
 
@@ -101,6 +110,7 @@ function drawChartJS() {
    
 
    worksheet.getSummaryDataAsync().then(function (sumdata) {
+     booted = true;
 
      // --- No player selected: show placeholder instead of the dashboard ---
      if (!sumdata.data || sumdata.data.length === 0) {
