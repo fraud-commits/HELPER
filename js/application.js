@@ -28,6 +28,8 @@ function fail(msg){ throw new Error(msg); }
 // Watchdog: if Tableau never answers with data (blocked extension, missing
 // sheet, unset filters), say so instead of leaving eternal zeros/dashes.
 let booted = false;
+// Global game scope: the whole dashboard follows DashGameFilter ('__all' or a GameType).
+let DashGameFilter = '__all';
 // chart click-tooltip element (declared here: chartTipHide() runs at refresh
 // top, long before the chart section below — late `let` would throw TDZ).
 let $chartTip = null;
@@ -166,6 +168,30 @@ function drawChartJS() {
 
             let totaltest = 0;
             var worksheetData = sumdata.data;
+
+            // ---- global game scope: the whole dashboard follows DashGameFilter ----
+            // (game list built from the full fetch so "All games" is always available)
+            let dashGames = [];
+            for(let gi = 0; gi < worksheetData.length; gi++){
+              let gg = (worksheetData[gi][GameType] && worksheetData[gi][GameType].formattedValue) || 'Unknown';
+              if(dashGames.indexOf(gg) === -1){ dashGames.push(gg); }
+            }
+            dashGames.sort();
+            if(dashGames.indexOf(DashGameFilter) === -1){ DashGameFilter = '__all'; }
+            let $dsel = $('#dash-game-filter');
+            if($dsel.length){
+              let dhtml = '<option value="__all">All games</option>';
+              for(let gi = 0; gi < dashGames.length; gi++){
+                dhtml += '<option value="' + dashGames[gi].replace(/"/g, '&quot;') + '">' + dashGames[gi] + '</option>';
+              }
+              $dsel.html(dhtml);
+              $dsel.val(DashGameFilter);
+            }
+            if(DashGameFilter !== '__all'){
+              worksheetData = worksheetData.filter(function(r){
+                return ((r[GameType] && r[GameType].formattedValue) || 'Unknown') === DashGameFilter;
+              });
+            }
      
             let DealerArry =[];
             let BetPositionArry =[];
@@ -1486,7 +1512,7 @@ function analyzeBot(){
 // computes the numeric report fields, so the analyst can copy them 1:1.
 
 let lastWinnerAnswers = [];
-let FinGameFilter = '__all'; // game-type scope of the Financial analysis card ('__all' or a GameType)
+// (global game scope lives in DashGameFilter; RoundArry is pre-filtered)
 
 function computeWinnerAnswers(){
 
@@ -1574,10 +1600,8 @@ function computeWinnerAnswers(){
   else{ brWhy = S + ' short (10–30 min) + ' + L + ' long (> 30 min) = ' + T + ' break(s)'; }
   answers.push({group: 'Report dropdowns', field: 'Breaks during analysis', value: br, why: brWhy});
 
-  // ---------- Wager statistics (scoped by the Game filter; dropdowns above stay global) ----------
-  let scope = (typeof FinGameFilter === 'string' && FinGameFilter !== '__all')
-    ? RoundArry.filter(function(r){ return (r.GameType || 'Unknown') === FinGameFilter; })
-    : RoundArry;
+  // ---------- Wager statistics (RoundArry already follows the global game scope) ----------
+  let scope = RoundArry;
   let sRounds = scope.length;
   let sTotalBet = 0, sTotalNet = 0, sWin = 0, sLoss = 0, sTie = 0;
   for(let si = 0; si < sRounds; si++){
@@ -1649,24 +1673,6 @@ function renderWinnerAnswers(){
   if(!$list.length && !$stats.length){ return; } // panels are not present (e.g. index2.html)
   $list.empty();
   $stats.empty();
-
-  // Game-type scope of the Financial analysis card (All + distinct game types)
-  let $sel = $('#fin-game-filter');
-  if($sel.length){
-    let games = [];
-    for(let gi = 0; gi < RoundArry.length; gi++){
-      let g = RoundArry[gi].GameType || 'Unknown';
-      if(games.indexOf(g) === -1){ games.push(g); }
-    }
-    games.sort();
-    let html = '<option value="__all">All</option>';
-    for(let gi = 0; gi < games.length; gi++){
-      html += '<option value="' + games[gi].replace(/"/g, '&quot;') + '">' + games[gi] + '</option>';
-    }
-    $sel.html(html);
-    if(games.indexOf(FinGameFilter) === -1){ FinGameFilter = '__all'; }
-    $sel.val(FinGameFilter);
-  }
 
   let answers = computeWinnerAnswers();
   let currentGroup = '';
@@ -1747,9 +1753,10 @@ $(document).off('click', '.ra-copy').on('click', '.ra-copy', function(){
 
 renderWinnerAnswers();
 
-$(document).off('change.fingame', '#fin-game-filter').on('change.fingame', '#fin-game-filter', function(){
-  FinGameFilter = $(this).val() || '__all';
-  renderWinnerAnswers();
+// Global game scope: re-run the whole dashboard on the selected game.
+$(document).off('change.dashgame', '#dash-game-filter').on('change.dashgame', '#dash-game-filter', function(){
+  DashGameFilter = $(this).val() || '__all';
+  drawChartJS();
 });
 
 // ================== END WINNER REPORT SUGGESTIONS ===================
