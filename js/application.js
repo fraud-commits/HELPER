@@ -1143,12 +1143,7 @@ function BetPositionTop(){
                                                 <td` + negClass(BetPositionArry[i].TotalNet) + `>` + BetPositionArry[i].TotalNet.toFixed(2) +`</td>
                                                 <td` + negClass(BetPositionArry[i].TotalNet) + `>`+ (BetPositionArry[i].TotalNet.toFixed(2) /  BetPositionArry[i].TotalBet.toFixed(2) * 100).toFixed(2)+` % </td>
                                                 <td>` + BetPositionArry[i].RoundCount +`</td>
-                                                <td>
-                                                    <div class="d-flex align-items-center">
-                                                        <span class="badge badge-success badge-dot m-r-10"></span>
-                                                        <span>` + BetPositionArry[i].Category + `</span>
-                                                    </div>
-                                                </td>
+                                                <td>` + BetPositionArry[i].Category + `</td>
                                             </tr>
     `)
   }
