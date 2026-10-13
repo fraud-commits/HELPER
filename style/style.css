@@ -708,6 +708,27 @@ color: var(--red) !important;
   color: var(--on-brand);
   border-color: var(--brand);
 }
+
+/* All / Main / Side bets switch */
+.bet-switch{
+  padding: 2px 8px;
+  font-size: 11px;
+}
+.bet-switch.active{
+  background: var(--brand);
+  color: var(--on-brand);
+  border-color: var(--brand);
+}
+.bet-switch:hover{
+  background: var(--mint);
+  color: var(--brand-ink);
+  border-color: var(--brand);
+}
+.bet-switch.active:hover{
+  background: var(--brand);
+  color: var(--on-brand);
+  border-color: var(--brand);
+}
 .dim-switch:hover{
   background: var(--mint);
   color: var(--brand-ink);

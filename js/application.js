@@ -62,6 +62,8 @@ function themeVar(name, fallback){
 let booted = false;
 // Global game scope: the whole dashboard follows DashGameFilter ('__all' or a GameType).
 let DashGameFilter = '__all';
+// Bet type table filter: 'all' | 'main' | 'side'.
+let BetTypeFilter = 'all';
 // Rounds whose timestamp could not be parsed (break analysis skips them).
 let UnparsedTimeCount = 0;
 // chart click-tooltip element (declared here: chartTipHide() runs at refresh
@@ -167,14 +169,12 @@ function drawChartJS() {
      $(".TableTop").empty();
      $(".GameTypeTop").empty();
      $(".RoundTop").empty();
-     $(".BetMainTop").empty();
-     $(".BetSideTop").empty();
+     $(".BetPosTop").empty();
      if ($.fn.DataTable.isDataTable('.table-dealer')) { $('.table-dealer').DataTable().clear().destroy(); }
      if ($.fn.DataTable.isDataTable('.table-table'))  { $('.table-table').DataTable().clear().destroy(); }
      if ($.fn.DataTable.isDataTable('.table-game'))   { $('.table-game').DataTable().clear().destroy(); }
      if ($.fn.DataTable.isDataTable('.table-roundTop')) { $('.table-roundTop').DataTable().clear().destroy(); }
-     if ($.fn.DataTable.isDataTable('.table-betmain'))   { $('.table-betmain').DataTable().clear().destroy(); }
-     if ($.fn.DataTable.isDataTable('.table-betside'))   { $('.table-betside').DataTable().clear().destroy(); }
+     if ($.fn.DataTable.isDataTable('.table-bettop'))   { $('.table-bettop').DataTable().clear().destroy(); }
 
      const RoundTime = 0,
            UserId = 5,
@@ -1140,48 +1140,49 @@ $('#table-table_wrapper, #table-game_wrapper').hide(); // inactive panes stay hi
 
 function BetPositionTop(){
 
-  // Main and Side bets render into two separate tables
-  let mainRows = '', sideRows = '';
-  let mBet = 0, mNet = 0, mCnt = 0, sBet = 0, sNet = 0, sCnt = 0;
+  // one table filtered by the All / Main / Side switch
+  let rows = '';
+  let tBet = 0, tNet = 0, tCnt = 0;
 
   for(let i = 0; i < BetPositionArry.length ; i++){
     let e = BetPositionArry[i];
-    let r = (`
+    if(BetTypeFilter === 'main' && e.Category === 'SideBet'){ continue; }
+    if(BetTypeFilter === 'side' && e.Category !== 'SideBet'){ continue; }
+    rows += (`
       <tr>
                                           <td>` + e.BetPosition + `</td>
                                             <td>` + e.TotalBet.toFixed(2) + `</td>
                                                 <td` + negClass(e.TotalNet) + `>` + e.TotalNet.toFixed(2) + `</td>
                                                 <td` + negClass(e.TotalNet) + `>` + (e.TotalBet > 0 ? (e.TotalNet.toFixed(2) / e.TotalBet.toFixed(2) * 100).toFixed(2) : '0.00') + ` % </td>
                                                 <td>` + e.RoundCount + `</td>
+                                                <td>` + e.Category + `</td>
                                             </tr>
-    `)
-    if(e.Category === 'SideBet'){ sideRows += r; sBet += e.TotalBet; sNet += e.TotalNet; sCnt += e.RoundCount; }
-    else{ mainRows += r; mBet += e.TotalBet; mNet += e.TotalNet; mCnt += e.RoundCount; }
+    `);
+    tBet += e.TotalBet; tNet += e.TotalNet; tCnt += e.RoundCount;
   }
-  $(".BetMainTop").html(mainRows);
-  $(".BetSideTop").html(sideRows);
+  $(".BetPosTop").html(rows);
 
-  // Grand totals under each table
-  function footTotals(prefix, b, n, c){
-    let m = b > 0 ? n / b * 100 : 0;
-    $('.foot-bet-' + prefix).text(b.toFixed(2));
-    $('.foot-net-' + prefix).html(negWrap(n, n.toFixed(2)));
-    $('.foot-margin-' + prefix).html(negWrap(n, m.toFixed(2) + ' %'));
-    $('.foot-count-' + prefix).text(c);
-  }
-  footTotals('m', mBet, mNet, mCnt);
-  footTotals('s', sBet, sNet, sCnt);
+  // Grand totals follow the current filter
+  let tMargin = tBet > 0 ? tNet / tBet * 100 : 0;
+  $( '.table-bettop .foot-bet').text(tBet.toFixed(2));
+  $( '.table-bettop .foot-net').html(negWrap(tNet, tNet.toFixed(2)));
+  $( '.table-bettop .foot-margin').html(negWrap(tNet, tMargin.toFixed(2) + ' %'));
+  $( '.table-bettop .foot-count').text(tCnt);
 
-  // no side bets in scope (e.g. roulette) — hide the side table
-  if(sCnt === 0 && sBet === 0){ $('.bet-side-wrap').hide(); } else { $('.bet-side-wrap').show(); }
-
-  $('.table-betmain').DataTable();
-  $('.table-betside').DataTable();
-
+  $( '.table-bettop').DataTable();
 }
 
 
 BetPositionTop()
+
+// All / Main / Side bets switch (re-renders the single table in place)
+$(document).off('click.btypeswitch', '.bet-switch').on('click.btypeswitch', '.bet-switch', function(){
+  BetTypeFilter = $(this).data('btype') || 'all';
+  $('.bet-switch').removeClass('active');
+  $(this).addClass('active');
+  if ($.fn.DataTable.isDataTable('.table-bettop')) { $('.table-bettop').DataTable().clear().destroy(); }
+  BetPositionTop();
+});
 
 // ============================ KEY FINDINGS ============================
 
