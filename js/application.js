@@ -1140,14 +1140,18 @@ $('#table-table_wrapper, #table-game_wrapper').hide(); // inactive panes stay hi
 
 function BetPositionTop(){
 
-  // one table filtered by the All / Main / Side switch
+  // one table filtered by the All / Main / Side switch, default order Net descending
   let rows = '';
   let tBet = 0, tNet = 0, tCnt = 0;
 
-  for(let i = 0; i < BetPositionArry.length ; i++){
-    let e = BetPositionArry[i];
-    if(BetTypeFilter === 'main' && e.Category === 'Side Bet'){ continue; }
-    if(BetTypeFilter === 'side' && e.Category !== 'Side Bet'){ continue; }
+  let scope = BetPositionArry.filter(function(e){
+    if(BetTypeFilter === 'main' && e.Category === 'Side Bet'){ return false; }
+    if(BetTypeFilter === 'side' && e.Category !== 'Side Bet'){ return false; }
+    return true;
+  }).sort(function(a, b){ return b.TotalNet - a.TotalNet; });
+
+  for(let i = 0; i < scope.length ; i++){
+    let e = scope[i];
     rows += (`
       <tr>
                                           <td>` + e.BetPosition + `</td>
@@ -1169,7 +1173,7 @@ function BetPositionTop(){
   $( '.table-bettop .foot-margin').html(negWrap(tNet, tMargin.toFixed(2) + ' %'));
   $( '.table-bettop .foot-count').text(tCnt);
 
-  $( '.table-bettop').DataTable();
+  $( '.table-bettop').DataTable({order: [], autoWidth: false});
 }
 
 
