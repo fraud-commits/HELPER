@@ -1870,13 +1870,9 @@ $(document).off('change.dashgame', '#dash-game-filter').on('change.dashgame', '#
 let ChartMode = 'bet';
 let betChart = null;
 
-// chart canvas: at least as wide as its card (bars fill the window),
-// wider (~5px per bar) with horizontal scroll when there are many rounds
+// chart canvas always fits its card (no scroll); bars get thinner with many rounds
 function chartCanvasHTML(){
-  let avail = 0;
-  try{ avail = $('.roulette-container').first().innerWidth() || 0; }catch(e){}
-  let w = Math.max(RoundArry.length * 5, avail, 300);
-  return '<canvas id="bar-chart" width="' + w + '" height="168" style="height:168px;"></canvas>';
+  return '<canvas id="bar-chart" style="height:168px;"></canvas>';
 }
 
   $("#bar-chart").remove();
@@ -1932,7 +1928,7 @@ betChart = new Chart(document.getElementById("bar-chart"), {
           let native = (evt && evt.native) || {};
           chartTipShow(native.clientX || 0, native.clientY || 0, r);
         },
-        responsive: false,
+        responsive: true,
         maintainAspectRatio: false,
         scales: {
             x: {
