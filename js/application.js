@@ -986,16 +986,17 @@ $('.tie-round-cnt').text(TieRoundCnt)
 
 
 
-let WinProcent = WinRoundCnt / RoundArry.length * 100;
-$('.WinProcent').text(WinProcent.toFixed(2) + "%");
-// red when abnormally high: >=55% of decided rounds (ties excluded), min 20 decided —
-// same bar as the Key findings red flag, which uses ~48-49% as expected
 let decidedRounds = WinRoundCnt + LossRoundCnt;
-let effWinPct = decidedRounds > 0 ? WinRoundCnt / decidedRounds * 100 : 0;
+// win ratio excludes ties (decided rounds only) — same base as Key findings
+let WinProcent = decidedRounds > 0 ? WinRoundCnt / decidedRounds * 100 : 0;
+$('.WinProcent').text(decidedRounds > 0 ? WinProcent.toFixed(2) + "%" : '—');
+// red when abnormally high: >=55%, min 10 decided —
+// same bar as the Key findings red flag, which uses ~48-49% as expected
+let effWinPct = WinProcent;
 let winCrit = decidedRounds >= 10 && effWinPct >= 55;
 $('.WinProcent').toggleClass('neg-val', winCrit);
 $('.WinProcent-bar').toggleClass('bar-neg', winCrit);
-$('.WinProcent-bar').css('width', WinProcent.toFixed(2) + "%");
+$('.WinProcent-bar').css('width', Math.min(100, WinProcent).toFixed(2) + "%");
 
 
 
