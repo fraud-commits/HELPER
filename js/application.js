@@ -167,13 +167,14 @@ function drawChartJS() {
      $(".TableTop").empty();
      $(".GameTypeTop").empty();
      $(".RoundTop").empty();
-     $(".BetPosTop").empty();
-     chartTipHide();
+     $(".BetMainTop").empty();
+     $(".BetSideTop").empty();
      if ($.fn.DataTable.isDataTable('.table-dealer')) { $('.table-dealer').DataTable().clear().destroy(); }
      if ($.fn.DataTable.isDataTable('.table-table'))  { $('.table-table').DataTable().clear().destroy(); }
      if ($.fn.DataTable.isDataTable('.table-game'))   { $('.table-game').DataTable().clear().destroy(); }
      if ($.fn.DataTable.isDataTable('.table-roundTop')) { $('.table-roundTop').DataTable().clear().destroy(); }
-     if ($.fn.DataTable.isDataTable('.table-bettop'))   { $('.table-bettop').DataTable().clear().destroy(); }
+     if ($.fn.DataTable.isDataTable('.table-betmain'))   { $('.table-betmain').DataTable().clear().destroy(); }
+     if ($.fn.DataTable.isDataTable('.table-betside'))   { $('.table-betside').DataTable().clear().destroy(); }
 
      const RoundTime = 0,
            UserId = 5,
@@ -238,7 +239,18 @@ function drawChartJS() {
             negativ = 0,
             martingeil = 0;
 
-            SideBetArry = ["Banker Bonus", "Banker Pair", "Phoenix Pair", "Player Bonus","Player Pair", "Small","Super 6"];
+            // ---- Main vs Side bets (per-game rules from the provider bet-type mapping) ----
+            // returns 'SideBet' only for known side wagers, everything else is 'MainBet'
+            function betCategory(gameType, pos){
+              let g = String(gameType || '').toUpperCase();
+              let p = String(pos || '').toUpperCase();
+              if(p.indexOf('BONUS') !== -1){ return 'SideBet'; }
+              if(g.indexOf('BACCARAT') !== -1){ return /PAIR|EITHER|PERFECT|SUPER/.test(p) ? 'SideBet' : 'MainBet'; }
+              if(g.indexOf('BLACKJACK') !== -1){ return /^21\+3|^PAIR|BONUS|DEALER_PAIR|DEALER_BUST|LUCKY_LADIES/.test(p) ? 'SideBet' : 'MainBet'; }
+              if(g.indexOf('TEEN PATTI') !== -1){ return p.indexOf('PAIR PLUS') !== -1 ? 'SideBet' : 'MainBet'; }
+              if(g.indexOf('DRAGON TIGER') !== -1){ return /BIG|SMALL|ODD|EVEN/.test(p) ? 'SideBet' : 'MainBet'; }
+              return 'MainBet';
+            }
             
 
 
@@ -381,7 +393,9 @@ function RoundTotla(indexStart,indexNext){
 
   let index = RoundArry.findIndex(object => object.RoundId === worksheetData[indexStart][RoundID].formattedValue);
   let index2 = DealerArry.findIndex(object => object.DealerName === worksheetData[indexStart][DealerName].formattedValue);
-  let index3 = BetPositionArry.findIndex(object => object.BetPosition === worksheetData[indexStart][BetPosition].formattedValue);
+  let bpName = worksheetData[indexStart][BetPosition].formattedValue;
+  let bpGame = worksheetData[indexStart][GameType].formattedValue;
+  let index3 = BetPositionArry.findIndex(object => object.BetPosition === bpName && object.GameType === bpGame);
   let index4 = TableArry.findIndex(object => object.TableName === worksheetData[indexStart][TableName].formattedValue);
 
   if (index === -1) {
@@ -427,10 +441,12 @@ function RoundTotla(indexStart,indexNext){
 
 
     BetPositionArry.push({
-      BetPosition: worksheetData[indexStart][BetPosition].formattedValue,
+      BetPosition: bpName,
+      GameType: bpGame,
       TotalBet: 0,
       TotalNet:0,
       RoundCount :0,
+      Category: betCategory(bpGame, bpName)
 
 
     })
@@ -470,20 +486,12 @@ if (element4) {
   element4.TotalNet += worksheetData[indexStart][NetEUR].value;
 }
 
-let element3 = BetPositionArry.find(e => e.BetPosition === worksheetData[indexStart][BetPosition].formattedValue);
-let BetCategory;
-
-if(SideBetArry.find(element => element === worksheetData[indexStart][BetPosition].formattedValue )){
-  console.log("element found")
-  BetCategory = "SideBet"
-}else{
-  BetCategory = "MainBet"
-}
+let element3 = BetPositionArry.find(e => e.BetPosition === worksheetData[indexStart][BetPosition].formattedValue && e.GameType === worksheetData[indexStart][GameType].formattedValue);
 if (element3 ) {
   element3.TotalBet += worksheetData[indexStart][BetEUR].value;
   element3.TotalNet += worksheetData[indexStart][NetEUR].value;
   element3.RoundCount += 1;
-  element3.Category = BetCategory;
+  element3.Category = betCategory(worksheetData[indexStart][GameType].formattedValue, worksheetData[indexStart][BetPosition].formattedValue);
  
 }
 
@@ -1131,38 +1139,44 @@ $('#table-table_wrapper, #table-game_wrapper').hide(); // inactive panes stay hi
 
 
 function BetPositionTop(){
-  
-  for(i = 0; i < BetPositionArry.length ; i++){
 
-  
+  // Main and Side bets render into two separate tables
+  let mainRows = '', sideRows = '';
+  let mBet = 0, mNet = 0, mCnt = 0, sBet = 0, sNet = 0, sCnt = 0;
 
-
-    $(".BetPosTop").append(`
+  for(let i = 0; i < BetPositionArry.length ; i++){
+    let e = BetPositionArry[i];
+    let r = (`
       <tr>
-                                          <td>`+ BetPositionArry[i].BetPosition + `</td>
-                                            <td>` + BetPositionArry[i].TotalBet.toFixed(2) +`</td>
-                                                <td` + negClass(BetPositionArry[i].TotalNet) + `>` + BetPositionArry[i].TotalNet.toFixed(2) +`</td>
-                                                <td` + negClass(BetPositionArry[i].TotalNet) + `>`+ (BetPositionArry[i].TotalNet.toFixed(2) /  BetPositionArry[i].TotalBet.toFixed(2) * 100).toFixed(2)+` % </td>
-                                                <td>` + BetPositionArry[i].RoundCount +`</td>
-                                                <td>` + BetPositionArry[i].Category + `</td>
+                                          <td>` + e.BetPosition + `</td>
+                                            <td>` + e.TotalBet.toFixed(2) + `</td>
+                                                <td` + negClass(e.TotalNet) + `>` + e.TotalNet.toFixed(2) + `</td>
+                                                <td` + negClass(e.TotalNet) + `>` + (e.TotalBet > 0 ? (e.TotalNet.toFixed(2) / e.TotalBet.toFixed(2) * 100).toFixed(2) : '0.00') + ` % </td>
+                                                <td>` + e.RoundCount + `</td>
                                             </tr>
     `)
+    if(e.Category === 'SideBet'){ sideRows += r; sBet += e.TotalBet; sNet += e.TotalNet; sCnt += e.RoundCount; }
+    else{ mainRows += r; mBet += e.TotalBet; mNet += e.TotalNet; mCnt += e.RoundCount; }
   }
- // Grand totals under each column of the Bet type statistics table
- let totalBetAll = 0, totalNetAll = 0, totalCountAll = 0;
- for(let i = 0; i < BetPositionArry.length; i++){
-   totalBetAll  += BetPositionArry[i].TotalBet;
-   totalNetAll  += BetPositionArry[i].TotalNet;
-   totalCountAll += BetPositionArry[i].RoundCount;
- }
- let totalMarginAll = totalBetAll > 0 ? totalNetAll / totalBetAll * 100 : 0;
+  $(".BetMainTop").html(mainRows);
+  $(".BetSideTop").html(sideRows);
 
- $('.table-bettop .foot-bet').text(totalBetAll.toFixed(2));
- $('.table-bettop .foot-net').html(negWrap(totalNetAll, totalNetAll.toFixed(2)));
- $('.table-bettop .foot-margin').html(negWrap(totalNetAll, totalMarginAll.toFixed(2) + ' %'));
- $('.table-bettop .foot-count').text(totalCountAll);
+  // Grand totals under each table
+  function footTotals(prefix, b, n, c){
+    let m = b > 0 ? n / b * 100 : 0;
+    $('.foot-bet-' + prefix).text(b.toFixed(2));
+    $('.foot-net-' + prefix).html(negWrap(n, n.toFixed(2)));
+    $('.foot-margin-' + prefix).html(negWrap(n, m.toFixed(2) + ' %'));
+    $('.foot-count-' + prefix).text(c);
+  }
+  footTotals('m', mBet, mNet, mCnt);
+  footTotals('s', sBet, sNet, sCnt);
 
- $('.table-bettop').DataTable();
+  // no side bets in scope (e.g. roulette) — hide the side table
+  if(sCnt === 0 && sBet === 0){ $('.bet-side-wrap').hide(); } else { $('.bet-side-wrap').show(); }
+
+  $('.table-betmain').DataTable();
+  $('.table-betside').DataTable();
 
 }
 
@@ -1173,9 +1187,11 @@ BetPositionTop()
 
 // ---- Roulette layout coverage helpers (Evolution-style position names;
 // unknown/other providers' names map to [] and are simply not counted) ----
-const ROULETTE_POCKETS = 37; // single-zero wheel: 0–36
-const ROULETTE_COVER_RED = 34; // >= this many pockets in one round = low-risk flag
+// Corner/street/split names come in range form (CORNER_1_TO_5 = {1,2,4,5})
+// or explicit form (STREET_0_1_2); double zero (00) counts as pocket 0.
 const ROULETTE_REDS = [1,3,5,7,9,12,14,16,18,19,21,23,25,27,30,32,34,36];
+function roulettePockets(gameType){ return /american/i.test(gameType || '') ? 38 : 37; }
+function rouletteRedLine(gameType){ return roulettePockets(gameType) - 3; }
 function rouletteRange(a, b){ let o = []; for(let n = a; n <= b; n++){ o.push(n); } return o; }
 function rouletteColumn(c){ let o = []; for(let n = c; n <= 36; n += 3){ o.push(n); } return o; }
 function rouletteNumbers(pos){
@@ -1195,9 +1211,17 @@ function rouletteNumbers(pos){
   let nums = p.match(/\d+/g);
   if(!nums){ return []; }
   nums = nums.map(Number);
-  if(p.indexOf('STREET_') === 0 && nums.length){ let r = nums[0]; return rouletteRange(3 * r - 2, 3 * r); }
-  if(p.indexOf('LINE_') === 0 && nums.length){ let r = nums[0]; return rouletteRange(3 * r - 2, 3 * r + 3); }
-  return nums.filter(function(n){ return n >= 0 && n <= 36; }); // straight / split / corner / basket
+  if(p.indexOf('CORNER_') === 0 && nums.length === 2){
+    let a = nums[0], b = nums[1];
+    return [a, a + 1, b - 1, b];
+  }
+  if((p.indexOf('STREET_') === 0 || p.indexOf('SIX_LINE_') === 0) && nums.length === 2){
+    let o = [], a = nums[0], b = nums[1];
+    for(let n = a; n <= b; n++){ o.push(n); }
+    return o;
+  }
+  if(p.indexOf('LINE_') === 0 && nums.length === 1){ let r = nums[0]; return rouletteRange(3 * r - 2, 3 * r + 3); }
+  return nums.filter(function(n){ return n >= 0 && n <= 36; }); // straight / split / corner / basket / explicit street
 }
 function rouletteCoveredCount(posObj){
   let seen = {};
@@ -1424,20 +1448,21 @@ function generateFindings(){
   }
 
   // ---- 9. Roulette layout coverage (low-risk / bonus-abuse play) ----
-  // counts distinct pockets (0–36) covered by one round's positions
+  // counts distinct pockets covered by one round's positions
   (function(){
-    let maxCover = 0, maxCoverRound = null, coverRounds = 0;
+    let maxCover = 0, maxCoverRound = null, maxPockets = 37, coverRounds = 0;
     for(let i = 0; i < rounds; i++){
       let r = RoundArry[i];
       if(!r || !/roulette/i.test(r.GameType || '')){ continue; }
+      let pockets = roulettePockets(r.GameType);
       let cov = rouletteCoveredCount(r.Positions);
-      if(cov > maxCover){ maxCover = cov; maxCoverRound = r; }
-      if(cov >= ROULETTE_COVER_RED){ coverRounds++; }
+      if(cov > maxCover){ maxCover = cov; maxCoverRound = r; maxPockets = pockets; }
+      if(cov >= rouletteRedLine(r.GameType)){ coverRounds++; }
     }
     if(coverRounds > 0){
       add(coverRounds >= 3 ? 'danger' : 'warning',
-          '<b>Low-risk roulette coverage:</b> ' + coverRounds + ' round(s) cover ' + ROULETTE_COVER_RED +
-          '+ of 37 pockets (max ' + maxCover + '/37 in round ' + maxCoverRound.RoundId +
+          '<b>Low-risk roulette coverage:</b> ' + coverRounds + ' round(s) cover ' + rouletteRedLine(maxCoverRound.GameType) +
+          '+ of ' + maxPockets + ' pockets (max ' + maxCover + '/' + maxPockets + ' in round ' + maxCoverRound.RoundId +
           ') — near-guaranteed outcome, typical bonus-abuse pattern.');
     }
   })();

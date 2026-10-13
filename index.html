@@ -4,7 +4,7 @@
     <link rel="stylesheet" type="text/css"
         href="https://cdn.jsdelivr.net/npm/bootstrap@5.2.0/dist/css/bootstrap.min.css">
 
-    <link rel="stylesheet" href="style/style.css?v=20261013-03">
+    <link rel="stylesheet" href="style/style.css?v=20261013-04">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.9.1/font/bootstrap-icons.css">
     <link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/1.13.1/css/jquery.dataTables.css">
     
@@ -297,8 +297,9 @@
                                 </div>
                             </div>
                             <div class="m-t-30">
-                                <div class="table-responsive">
-                                    <table class="table-striped table table-hover table-bettop">
+                                <div class="table-responsive bet-main-wrap">
+                                    <p class="text-muted m-b-0">Main bets</p>
+                                    <table class="table-striped table table-hover table-betmain">
                                         <thead>
                                             <tr>
                                                 <th>Bet position</th>
@@ -306,21 +307,42 @@
                                                 <th>Net</th>
                                                 <th>Margin</th>
                                                 <th>Count</th>
-                                                <th>Bet type</th>
                                             </tr>
                                         </thead>
-                                        <tbody class="BetPosTop">
-
-
+                                        <tbody class="BetMainTop">
                                         </tbody>
                                         <tfoot class="table-footer">
                                             <tr>
                                                 <th>Total</th>
-                                                <th class="foot-bet">—</th>
-                                                <th class="foot-net">—</th>
-                                                <th class="foot-margin">—</th>
-                                                <th class="foot-count">—</th>
-                                                <th></th>
+                                                <th class="foot-bet-m">—</th>
+                                                <th class="foot-net-m">—</th>
+                                                <th class="foot-margin-m">—</th>
+                                                <th class="foot-count-m">—</th>
+                                            </tr>
+                                        </tfoot>
+                                    </table>
+                                </div>
+                                <div class="table-responsive bet-side-wrap" style="margin-top:12px;">
+                                    <p class="text-muted m-b-0">Side bets</p>
+                                    <table class="table-striped table table-hover table-betside">
+                                        <thead>
+                                            <tr>
+                                                <th>Bet position</th>
+                                                <th>Bet</th>
+                                                <th>Net</th>
+                                                <th>Margin</th>
+                                                <th>Count</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody class="BetSideTop">
+                                        </tbody>
+                                        <tfoot class="table-footer">
+                                            <tr>
+                                                <th>Total</th>
+                                                <th class="foot-bet-s">—</th>
+                                                <th class="foot-net-s">—</th>
+                                                <th class="foot-margin-s">—</th>
+                                                <th class="foot-count-s">—</th>
                                             </tr>
                                         </tfoot>
                                     </table>
@@ -346,7 +368,7 @@
             </div>
             <div class="row">
                 <div class="col-12 text-center">
-                    <span class="ext-version">helper v2026-10-13-03</span>
+                    <span class="ext-version">helper v2026-10-13-04</span>
                 </div>
             </div>
         </div>
@@ -366,6 +388,6 @@
 <script src="//cdnjs.cloudflare.com/ajax/libs/moment.js/2.8.4/moment.js"></script>
 <script type="text/javascript" charset="utf8" src="https://cdn.datatables.net/1.13.1/js/jquery.dataTables.js"></script>
 
-<script type="text/javascript" src="js/application.js?v=20261013-03"></script>
+<script type="text/javascript" src="js/application.js?v=20261013-04"></script>
 
 </html>
