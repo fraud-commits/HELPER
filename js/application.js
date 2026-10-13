@@ -62,6 +62,8 @@ function themeVar(name, fallback){
 let booted = false;
 // Global game scope: the whole dashboard follows DashGameFilter ('__all' or a GameType).
 let DashGameFilter = '__all';
+// Rounds whose timestamp could not be parsed (break analysis skips them).
+let UnparsedTimeCount = 0;
 // chart click-tooltip element (declared here: chartTipHide() runs at refresh
 // top, long before the chart section below — late `let` would throw TDZ).
 let $chartTip = null;
@@ -528,7 +530,12 @@ function typicalRoundMin(roundsArr){
 }
 
 function parseRoundTime(t){
-  let m = moment(t, ["DD-MM-YYYY HH:mm:ss a", "DD-MM-YYYY HH:mm:ss", "YYYY-MM-DD HH:mm:ss"], true);
+  // strict first (DD/MM before MM/DD matters: 09/10 = 9 Oct, not 10 Sep).
+  // Single-letter tokens reject zero-padded values in strict mode, so both
+  // padded (DD/MM/YYYY HH) and unpadded (D/M/YYYY H) variants are listed.
+  let m = moment(t, ["DD-MM-YYYY HH:mm:ss a", "DD-MM-YYYY HH:mm:ss", "YYYY-MM-DD HH:mm:ss",
+                     "DD/MM/YYYY HH:mm:ss A", "DD/MM/YYYY HH:mm:ss",
+                     "D/M/YYYY H:mm:ss A", "D/M/YYYY H:mm:ss"], true);
   if(!m.isValid()){ m = moment(t); } // last resort: let moment guess the format
   return m.isValid() ? m : null;
 }
@@ -703,6 +710,7 @@ function BreakCounter(){
     return { r: r, t: parseRoundTime(r.RoundTime) };
   }).filter(function(o){ return o.t !== null; })
     .sort(function(a, b){ return a.t.valueOf() - b.t.valueOf(); });
+  UnparsedTimeCount = RoundArry.length - sorted.length;
 
   // --- typical round cadence = median gap of fast (sequential) intervals ---
   let gaps = [];
@@ -1408,6 +1416,15 @@ function generateFindings(){
   // ---- 8. Sample size ----
   if(rounds < 15){
     add('info', 'Small sample: only ' + rounds + ' round(s) — conclusions are unreliable.');
+  }
+
+  // ---- 8b. Unreadable timestamps (break pattern skips such rounds silently) ----
+  if(UnparsedTimeCount > 0){
+    if(UnparsedTimeCount >= rounds){
+      add('warning', '<b>Timestamps unreadable in all ' + rounds + ' round(s)</b> (expected DD/MM/YYYY) — break pattern, bet continuity and chronological order are unreliable.');
+    }else{
+      add('info', 'Timestamps unreadable in ' + UnparsedTimeCount + ' of ' + rounds + ' round(s) — break pattern covers only the rest.');
+    }
   }
 
   // ---- 9. Roulette layout coverage (low-risk / bonus-abuse play) ----
