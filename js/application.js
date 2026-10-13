@@ -240,16 +240,16 @@ function drawChartJS() {
             martingeil = 0;
 
             // ---- Main vs Side bets (per-game rules from the provider bet-type mapping) ----
-            // returns 'SideBet' only for known side wagers, everything else is 'MainBet'
+            // returns 'Side Bet' only for known side wagers, everything else is 'Main Bet'
             function betCategory(gameType, pos){
               let g = String(gameType || '').toUpperCase();
               let p = String(pos || '').toUpperCase();
-              if(p.indexOf('BONUS') !== -1){ return 'SideBet'; }
-              if(g.indexOf('BACCARAT') !== -1){ return /PAIR|EITHER|PERFECT|SUPER/.test(p) ? 'SideBet' : 'MainBet'; }
-              if(g.indexOf('BLACKJACK') !== -1){ return /^21\+3|^PAIR|BONUS|DEALER_PAIR|DEALER_BUST|LUCKY_LADIES/.test(p) ? 'SideBet' : 'MainBet'; }
-              if(g.indexOf('TEEN PATTI') !== -1){ return p.indexOf('PAIR PLUS') !== -1 ? 'SideBet' : 'MainBet'; }
-              if(g.indexOf('DRAGON TIGER') !== -1){ return /BIG|SMALL|ODD|EVEN/.test(p) ? 'SideBet' : 'MainBet'; }
-              return 'MainBet';
+              if(p.indexOf('BONUS') !== -1){ return 'Side Bet'; }
+              if(g.indexOf('BACCARAT') !== -1){ return /PAIR|EITHER|PERFECT|SUPER/.test(p) ? 'Side Bet' : 'Main Bet'; }
+              if(g.indexOf('BLACKJACK') !== -1){ return /^21\+3|^PAIR|BONUS|DEALER_PAIR|DEALER_BUST|LUCKY_LADIES/.test(p) ? 'Side Bet' : 'Main Bet'; }
+              if(g.indexOf('TEEN PATTI') !== -1){ return p.indexOf('PAIR PLUS') !== -1 ? 'Side Bet' : 'Main Bet'; }
+              if(g.indexOf('DRAGON TIGER') !== -1){ return /BIG|SMALL|ODD|EVEN/.test(p) ? 'Side Bet' : 'Main Bet'; }
+              return 'Main Bet';
             }
             
 
@@ -1146,8 +1146,8 @@ function BetPositionTop(){
 
   for(let i = 0; i < BetPositionArry.length ; i++){
     let e = BetPositionArry[i];
-    if(BetTypeFilter === 'main' && e.Category === 'SideBet'){ continue; }
-    if(BetTypeFilter === 'side' && e.Category !== 'SideBet'){ continue; }
+    if(BetTypeFilter === 'main' && e.Category === 'Side Bet'){ continue; }
+    if(BetTypeFilter === 'side' && e.Category !== 'Side Bet'){ continue; }
     rows += (`
       <tr>
                                           <td>` + e.BetPosition + `</td>
