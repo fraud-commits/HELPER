@@ -239,6 +239,14 @@ function drawChartJS() {
             negativ = 0,
             martingeil = 0;
 
+            // in blackjack, double/split/insurance are hand decisions, not staking changes —
+            // progression analysis excludes them from the base bet
+            function isHandAction(gameType, pos){
+              let g = String(gameType || '').toUpperCase();
+              let p = String(pos || '').toUpperCase();
+              if(g.indexOf('BLACKJACK') === -1){ return false; }
+              return /^(DOUBLE|SPLIT|INSURANCE|BLIND_DOUBLE|BB_DOUBLE|BB_SPLIT|BB_INSURANCE)/.test(p);
+            }
             // ---- Main vs Side bets (per-game rules from the provider bet-type mapping) ----
             // returns 'Side Bet' only for known side wagers, everything else is 'Main Bet'
             function betCategory(gameType, pos){
@@ -403,6 +411,7 @@ function RoundTotla(indexStart,indexNext){
     RoundArry.push({
       RoundId: worksheetData[indexStart][RoundID].formattedValue,
       TotalRoundBet: 0,
+      BaseBet: 0, // hand stake without in-game actions (blackjack double/split/insurance)
       TotalRoundNet:0,
       DealerName: worksheetData[indexStart][DealerName].formattedValue,
       TableName: worksheetData[indexStart][TableName].formattedValue,
@@ -467,6 +476,11 @@ function RoundTotla(indexStart,indexNext){
   if (element) {
     element.TotalRoundBet += worksheetData[indexStart][BetEUR].value;
     element.TotalRoundNet += worksheetData[indexStart][NetEUR].value;
+    // base hand stake excludes in-game actions (blackjack double/split/insurance) —
+    // those are hand decisions, not staking decisions, so progression uses BaseBet
+    if(!isHandAction(worksheetData[indexStart][GameType].formattedValue, worksheetData[indexStart][BetPosition].formattedValue)){
+      element.BaseBet += worksheetData[indexStart][BetEUR].value;
+    }
     // per-round bet-position set (roulette layout coverage analysis)
     if(!element.Positions){ element.Positions = {}; }
     element.Positions[worksheetData[indexStart][BetPosition].formattedValue] = true;
@@ -893,16 +907,19 @@ function BetProgression (){
     // negative pattern = raise after a loss OR lower after a win;
     // positive pattern = raise after a win OR lower after a loss.
     // (chaotic is session-level — both systems mixed — not a transition label.)
-    let curBet = RoundArry[cur].TotalRoundBet;
-    let nextBet = RoundArry[next].TotalRoundBet;
+    // BaseBet = hand stake without blackjack double/split/insurance actions;
+    // falls back to the total when a round has no base stake (safety).
+    let curBet = RoundArry[cur].BaseBet > 0 ? RoundArry[cur].BaseBet : RoundArry[cur].TotalRoundBet;
+    let nextBet = RoundArry[next].BaseBet > 0 ? RoundArry[next].BaseBet : RoundArry[next].TotalRoundBet;
     let curNet = RoundArry[cur].TotalRoundNet;
+    let nextBetN = RoundArry[nextn].BaseBet > 0 ? RoundArry[nextn].BaseBet : RoundArry[nextn].TotalRoundBet;
     if (Math.abs(nextBet - curBet) <= curBet * 0.02){
       same += 1; //Flat
     }else if(nextBet > curBet && curNet <= 0){
       // raise after a loss → negative pattern (any size, not just 2x);
       // back-to-back (2x ±2%, rounding counts) raises after losses tracked as Martingale
       if(curBet * 1.96 <= nextBet && RoundArry[next].TotalRoundNet <= 0 &&
-         RoundArry[next].TotalRoundBet * 1.96 <= RoundArry[nextn].TotalRoundBet){
+         nextBet * 1.96 <= nextBetN){
         martingeil += 1; // Martingale
       }else{
         negativ += 1; // Negative
