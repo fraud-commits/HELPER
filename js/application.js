@@ -1581,10 +1581,14 @@ function analyzeBot(){
     }
   }
 
-  // ---- 2. Stake variance (max bet / average bet) ----
+  // ---- 2. Stake variance (max bet / average bet, on the BASE hand stake —
+  //         blackjack double/split actions would fake a 2x spike) ----
   let avgBet = 0, maxBet = 0;
   if(rounds > 0){ avgBet = TotalBet / rounds; }
-  for(let i = 0; i < rounds; i++){ if(RoundArry[i].TotalRoundBet > maxBet){ maxBet = RoundArry[i].TotalRoundBet; } }
+  for(let i = 0; i < rounds; i++){
+    let b = RoundArry[i].BaseBet > 0 ? RoundArry[i].BaseBet : RoundArry[i].TotalRoundBet;
+    if(b > maxBet){ maxBet = b; }
+  }
   let betVar = avgBet > 0 ? maxBet / avgBet : 0;
 
   // ---- 3. Median cadence between played rounds ----
@@ -1603,13 +1607,13 @@ function analyzeBot(){
   let sig = 0;
   let notes = [];
 
-  if(rounds > 300){ sig++; notes.push('very long session: ' + rounds + ' rounds (> 300) — bots can play for hours without tiring'); }
+  if(rounds > 500){ sig++; notes.push('very long session: ' + rounds + ' rounds (> 500) — bots play long, flat sessions without tiring'); }
   if(entropy < 2.5 && distinctTypes > 0){ sig++; notes.push('few repeating bets: only ' + distinctTypes + ' bet type(s) used (' + entropy.toFixed(2) + ' bits) — bots stick to the same pattern'); }
   // scripted play keeps the stake almost fixed; a human spreads it out
   if(betVar < 1.5 && avgBet > 0){ sig++; notes.push('stake almost never changes: max bet is only ' + (betVar > 0 ? betVar.toFixed(1) : '0') + '× the average'); }
   // very fast, steady cadence (well under the ~40 s table median)
   if(cadence > 0 && cadence < 0.5){ sig++; notes.push('plays very fast: median ' + (cadence * 60).toFixed(0) + ' s between rounds (normal is ~40 s) — bots do not hesitate'); }
-  if(rounds > 100 && breakCnt === 0){ sig++; notes.push('no breaks at all in ' + rounds + ' rounds — a human usually pauses'); }
+  if(rounds > 300 && breakCnt <= 1){ sig++; notes.push('at most one break in ' + rounds + ' rounds — a human usually pauses'); }
 
   let verdict, lvl;
   if(sig >= 3){ verdict = 'Yes'; lvl = 'danger'; }
