@@ -335,14 +335,15 @@ Trigger();
     minimumFractionDigits: 2,
     maximumFractionDigits: 2
   })).toggleClass('neg-val', TotalNet < 0);
-  $('.Margin').text(Margin.toFixed(2) + "%").toggleClass('neg-val', Margin < 0);
-  // session margin: dark brand green when positive, red when negative;
-  // diverging bar from the centre zero (±100% scale clamped, 100% = half the track)
+  $('.Margin').text(Margin.toFixed(2) + "%").toggleClass('neg-val', Margin < 0 || Margin >= 50);
+  // session margin bar: teal in the normal band, red when negative OR abnormally high (>= 50%);
+  // diverging from the centre zero (±100% scale clamped, 100% = half the track)
+  let mCrit = Margin < 0 || Margin >= 50;
   let mClamped = Math.max(-100, Math.min(100, Margin));
-  let mBar = $('.margin-bar').toggleClass('bar-pos', Margin >= 0).toggleClass('bar-neg', Margin < 0);
+  let mBar = $('.margin-bar').toggleClass('bar-pos', !mCrit).toggleClass('bar-neg', mCrit);
   if(mClamped >= 0){ mBar.css({left: '50%', width: (mClamped / 2) + '%'}); }
   else{ mBar.css({left: (50 + mClamped / 2) + '%', width: (-mClamped / 2) + '%'}); }
-  $('.session-dot').toggleClass('dot-pos', Margin >= 0).toggleClass('dot-neg', Margin < 0);
+  $('.session-dot').toggleClass('dot-pos', !mCrit).toggleClass('dot-neg', mCrit);
 
 
 
