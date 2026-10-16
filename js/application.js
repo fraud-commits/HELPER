@@ -1709,7 +1709,8 @@ function computeWinnerAnswers(){
   let br;
   if(rounds == 1){ br = 'Only one game round held'; }
   else if(T == 0){ br = 'No breaks during the session'; }
-  else if(T <= 2){ br = 'Few breaks during the session'; }
+  else if(T == 1){ br = L == 1 ? 'One long break' : 'One short break'; }
+  else if(T == 2){ br = L == 2 ? 'Two long breaks' : (S == 2 ? 'Two short breaks' : 'One short and one long break'); }
   else if(L == 0 && S <= 5){ br = 'Several short breaks'; }
   else if(S == 0 && L <= 5){ br = 'Several long breaks'; }
   else if(L > 0 && S > 0 && T <= 7){ br = 'Several long and short breaks'; }
