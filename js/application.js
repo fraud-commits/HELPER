@@ -81,27 +81,26 @@ let chartTipPinned = null, chartTipFor = null;
 // Rounds are sorted by time first; timestamps that cannot be parsed are skipped.
 //
 // NOTE: these bindings sit at the TOP LEVEL on purpose. Almost all of the analysis
-// code lives inside drawChartJS()'s .then() callback, and Trigger() runs there before
-// any declaration further down — a `let` declared inside that callback would be in the
-// temporal dead zone when Trigger() assigns CurrentOperatorId ("Cannot access ... before
-// initialization"), and applyClientLabel() would not exist for the init call.
+// code lives inside drawChartJS()'s .then() callback, and code there runs before any
+// declaration further down — a `let` declared inside that callback is in the temporal
+// dead zone when earlier code touches it ("Cannot access ... before initialization"),
+// and applyClientLabel() would not exist for the init call.
 const BREAK_RULES = { SKIP_MIN: 3, SKIP_MAX: 10, SHORT_MAX: 30 };
 // ---- client (workbook level) identification ---------------------------------
-// Sub Partner Id / CompanyCode differs for every player, so it cannot be the
-// client key. The client name comes from the workbook itself: a Title/Text zone
-// on the dashboard (e.g. "3.Mac88_PC3") is read first, the dashboard's own name
-// (the tab) is the fallback. Generic zone names ("Title 1", "Dashboard") are ignored.
+// Sub Partner Id / CompanyCode differs for every player, so it cannot be the client
+// key. Sources, in order of precedence: 1) the value typed into the "Client" field
+// (extension settings, saved in the workbook), 2) the fraud sheet's own name — rename
+// the sheet "fraud" -> "fraud Mac88" / "fraud | RG" and the suffix is the client,
+// 3) a Title/Text zone name (only readable with Extensions lib >= 1.1).
+// The dashboard tab name is NOT a source — it names the dashboard, not the client.
 const CLIENT_BREAK_RULES = {
-  // workbook Title / dashboard-name keys (checked first)
+  // keys are matched against the Client label (case-insensitive substring for
+  // keys of 4+ chars, word-bounded for short ones like 'rg')
   'mac88':       { SKIP_MIN: 5, SKIP_MAX: 10, SHORT_MAX: 30 },
   'royalgaming': { SKIP_MIN: 5, SKIP_MAX: 10, SHORT_MAX: 30 },
-  'rg':          { SKIP_MIN: 5, SKIP_MAX: 10, SHORT_MAX: 30 },
-  // exact operator id fallback when no Title is set on the dashboard
-  'rolex:southbook.in': { SKIP_MIN: 5, SKIP_MAX: 10, SHORT_MAX: 30 },
-  'headerspoint':       { SKIP_MIN: 5, SKIP_MAX: 10, SHORT_MAX: 30 }
+  'rg':          { SKIP_MIN: 5, SKIP_MAX: 10, SHORT_MAX: 30 }
 };
-let ClientLabel = '';       // detected client label (from the Title / dashboard name)
-let CurrentOperatorId = '';
+let ClientLabel = '';       // detected client label (from the Client field / fraud sheet name)
 // key of the client name stored in the extension Settings namespace (per workbook)
 const CLIENT_LABEL_KEY = 'helperClientLabel';
 
@@ -121,23 +120,48 @@ function labelMatchesKey(label, key){
   return new RegExp('(^|[^a-z0-9])' + k.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '([^a-z0-9]|$)').test(l);
 }
 function currentBreakRulesKey(){
+  // rules are keyed ONLY by the explicit client label (the Client field, or the
+  // fraud sheet's name suffix). Operator ids are no longer a key: sub partner ids
+  // differ per player, and the "(operator)" legend was noise for the analyst.
   const keys = Object.keys(CLIENT_BREAK_RULES);
   for(let i = 0; i < keys.length; i++){
     if(ClientLabel && labelMatchesKey(ClientLabel, keys[i])){ return keys[i]; }
   }
-  if(CurrentOperatorId && CLIENT_BREAK_RULES[CurrentOperatorId]){ return CurrentOperatorId; }
   return '';
 }
 function currentBreakRules(){
   const key = currentBreakRulesKey();
   return key ? CLIENT_BREAK_RULES[key] : BREAK_RULES;
 }
+// The fraud sheet may carry the client name in ITS OWN NAME (worksheet title text is
+// NOT exposed by the Extensions API — only the sheet name is), e.g. rename the sheet
+// "fraud" -> "fraud Mac88" / "fraud | RG". The suffix becomes the client label.
+const FRAUD_SHEET_RE = /^fraud(\s*[|:\-–—·]\s*|\s+)(.+)$/;
+function findFraudSheet(worksheets){
+  return worksheets.find(function(s){ return s.name === 'fraud'; }) ||
+         worksheets.find(function(s){ return FRAUD_SHEET_RE.test(String(s.name || '')); });
+}
+function fraudSheetClient(sheetName){
+  const m = FRAUD_SHEET_RE.exec(String(sheetName || '').trim());
+  const suffix = m ? m[2].trim() : '';
+  return /[a-zа-я]/i.test(suffix) ? suffix : '';   // "fraud 2" is a copy, not a client
+}
 function detectClientLabelSources(){
-  // reads the workbook only: Title/Text zone name first, dashboard (tab) name as fallback
+  // reads the workbook only: the fraud sheet's own name first, then a Title/Text zone.
+  // The dashboard tab name is deliberately NOT used — it names the dashboard, not the client.
   let found = [], detected = '';
   let generic = /^(title|text|blank|image|dashboard|sheet|page)([\s_-]*\d+)?$/i;
   try{
     const dash = tableau.extensions.dashboardContent.dashboard;
+    const sheets = dash.worksheets || [];
+    for(let i = 0; i < sheets.length; i++){
+      const nm = sheets[i] && sheets[i].name ? String(sheets[i].name).trim() : '';
+      const client = fraudSheetClient(nm);
+      if(client){
+        found.push('sheet "' + nm + '"');
+        if(!detected){ detected = client; }
+      }
+    }
     const objs = dash.objects || [];
     for(let i = 0; i < objs.length; i++){
       const o = objs[i];
@@ -148,9 +172,6 @@ function detectClientLabelSources(){
       found.push('zone "' + nm + '"');
       if(!detected && !generic.test(nm)){ detected = nm; }
     }
-    const dn = dash.name ? String(dash.name).trim() : '';
-    if(dn){ found.push('dashboard "' + dn + '"'); }
-    if(!detected && dn && !generic.test(dn)){ detected = dn; }
   }catch(e){ found.push('error: ' + e); }
   return { label: detected, sources: found };
 }
@@ -222,11 +243,9 @@ function getSettings() {
 
    const worksheets = tableau.extensions.dashboardContent.dashboard.worksheets;
 
-   var worksheet = worksheets.find(function (sheet) {
-     return sheet.name === "fraud";
-   });
+   var worksheet = findFraudSheet(worksheets);
 
-   if(!worksheet){ fail("Worksheet 'fraud' is not on this dashboard — add the sheet and Reload the extension."); }
+   if(!worksheet){ fail("Worksheet 'fraud' (or 'fraud <client>') is not on this dashboard — add the sheet and Reload the extension."); }
 
    // If settings are changed we will unregister and re register the listener.
    if (unregisterFilterEventListener != null) {
@@ -258,11 +277,9 @@ function drawChartJS() {
 
    const worksheets = tableau.extensions.dashboardContent.dashboard.worksheets;
 
-   var worksheet = worksheets.find(function (sheet) {
-     return sheet.name === "fraud";
-   });
+   var worksheet = findFraudSheet(worksheets);
 
-   if(!worksheet){ fail("Worksheet 'fraud' is not on this dashboard — add the sheet and Reload the extension."); }
+   if(!worksheet){ fail("Worksheet 'fraud' (or 'fraud <client>') is not on this dashboard — add the sheet and Reload the extension."); }
 
    
 
@@ -389,7 +406,6 @@ function Trigger(){
   // raw .value (not formattedValue) so ids never pick up thousand separators etc.
   function cellId(cell){ return (cell && cell.value !== undefined && cell.value !== null) ? String(cell.value) : String(cell ? cell.formattedValue : ''); }
   let operatorId = cellId(worksheetData[0][CompanyCode]);
-  CurrentOperatorId = operatorId;
   let playerId = cellId(worksheetData[0][UserId]);
   $('.PlayerId').text(playerId);
   $('.OperatorId').text(operatorId);
@@ -639,10 +655,10 @@ if (element3 ) {
 console.log(BetPositionArry)
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// BREAK RULES, CLIENT_BREAK_RULES, ClientLabel / CurrentOperatorId and
+// BREAK RULES, CLIENT_BREAK_RULES, ClientLabel, findFraudSheet() and
 // currentBreakRules() / applyClientLabel() moved to the TOP LEVEL of the file —
-// they must exist before drawChartJS() starts (Trigger() assigns CurrentOperatorId
-// early in the refresh, before this point in the code below).
+// they must exist before drawChartJS() starts (analysis code inside its .then()
+// callback runs before this point in the code below).
 
 let EstSkippedRounds = 0; // estimated number of game rounds missed during skips
 
