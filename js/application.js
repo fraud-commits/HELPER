@@ -84,7 +84,7 @@ let chartTipPinned = null, chartTipFor = null;
 // code lives inside drawChartJS()'s .then() callback, and Trigger() runs there before
 // any declaration further down — a `let` declared inside that callback would be in the
 // temporal dead zone when Trigger() assigns CurrentOperatorId ("Cannot access ... before
-// initialization"), and detectClientLabel() would not exist for the init call.
+// initialization"), and applyClientLabel() would not exist for the init call.
 const BREAK_RULES = { SKIP_MIN: 3, SKIP_MAX: 10, SHORT_MAX: 30 };
 // ---- client (workbook level) identification ---------------------------------
 // Sub Partner Id / CompanyCode differs for every player, so it cannot be the
@@ -102,6 +102,17 @@ const CLIENT_BREAK_RULES = {
 };
 let ClientLabel = '';       // detected client label (from the Title / dashboard name)
 let CurrentOperatorId = '';
+// key of the client name stored in the extension Settings namespace (per workbook)
+const CLIENT_LABEL_KEY = 'helperClientLabel';
+
+// the "Client" input: Enter / leaving the field saves the label into the workbook
+$(document).off('change.clientlabel', '#client-label-input').on('change.clientlabel', '#client-label-input', function(){
+  saveClientLabel(String($(this).val() || '').trim());
+});
+$(document).off('keydown.clientlabel', '#client-label-input').on('keydown.clientlabel', '#client-label-input', function(e){
+  if(e.keyCode === 13){ $(this).blur(); }                       // Enter = save (change fires on blur)
+  else if(e.keyCode === 27){ $(this).val(ClientLabel).blur(); } // Esc = undo edits
+});
 
 function labelMatchesKey(label, key){
   const l = String(label).toLowerCase(), k = String(key).toLowerCase();
@@ -121,9 +132,9 @@ function currentBreakRules(){
   const key = currentBreakRulesKey();
   return key ? CLIENT_BREAK_RULES[key] : BREAK_RULES;
 }
-function detectClientLabel(){
-  ClientLabel = '';
-  let found = [];
+function detectClientLabelSources(){
+  // reads the workbook only: Title/Text zone name first, dashboard (tab) name as fallback
+  let found = [], detected = '';
   let generic = /^(title|text|blank|image|dashboard|sheet|page)([\s_-]*\d+)?$/i;
   try{
     const dash = tableau.extensions.dashboardContent.dashboard;
@@ -135,16 +146,41 @@ function detectClientLabel(){
       const nm = o.name ? String(o.name).trim() : '';   // .name needs Extensions lib >= 1.1.0
       if(!nm){ continue; }
       found.push('zone "' + nm + '"');
-      if(!ClientLabel && !generic.test(nm)){ ClientLabel = nm; }
+      if(!detected && !generic.test(nm)){ detected = nm; }
     }
     const dn = dash.name ? String(dash.name).trim() : '';
     if(dn){ found.push('dashboard "' + dn + '"'); }
-    if(!ClientLabel && dn && !generic.test(dn)){ ClientLabel = dn; }
+    if(!detected && dn && !generic.test(dn)){ detected = dn; }
   }catch(e){ found.push('error: ' + e); }
-  $('.client-tag').toggle(!!ClientLabel);
-  $('.client-name').text(ClientLabel);
-  if(found.length){ $('.client-tag').attr('title', 'client label sources: ' + found.join(' · ')); }
-  console.log('HELPER client label:', ClientLabel || '(none)', found);
+  return { label: detected, sources: found };
+}
+function applyClientLabel(){
+  // precedence: the value typed into the "Client" field (saved in the workbook via
+  // extension settings) wins over what could be detected from the workbook itself
+  let saved = '';
+  try{ saved = String(tableau.extensions.settings.get(CLIENT_LABEL_KEY) || '').trim(); }catch(e){}
+  let det = detectClientLabelSources();
+  ClientLabel = saved || det.label;
+  let src = saved ? ['settings "' + saved + '"'].concat(det.sources) : det.sources;
+  let $inp = $('#client-label-input');
+  if($inp.length){
+    if(document.activeElement !== $inp[0]){ $inp.val(ClientLabel); }
+    $inp.attr('title', src.length
+      ? 'client label sources: ' + src.join(' · ')
+      : 'no client label found — type the client name and press Enter');
+  }
+  console.log('HELPER client label:', ClientLabel || '(none)', src, saved ? '(saved)' : '(auto)');
+}
+function saveClientLabel(value){
+  // persists into the workbook (Settings namespace) — save the .twb once afterwards
+  const clean = String(value === undefined || value === null ? '' : value).trim();
+  try{
+    tableau.extensions.settings.set(CLIENT_LABEL_KEY, clean);
+    tableau.extensions.settings.saveAsync().then(function(){
+      applyClientLabel();
+      drawChartJS();   // re-run break analysis with the new label
+    }, function(e){ console.log('settings save failed', e); });
+  }catch(e){ console.log('settings save failed', e); }
 }
 
 setTimeout(function(){
@@ -160,12 +196,13 @@ setTimeout(function(){
 $(document).ready(function () {
    tableau.extensions.initializeAsync().then(function () {
       // Draw the chart when initialising the dashboard.
-      detectClientLabel();   // read the client name from the workbook Title
+      applyClientLabel();   // client name: saved value (settings) or workbook Title/tab
       getSettings();
       drawChartJS();
       // Set up the Settings Event Listener.
       unregisterSettingsEventListener = tableau.extensions.settings.addEventListener(tableau.TableauEventType.SettingsChanged, (settingsEvent) => {
          // On settings change.
+      applyClientLabel();
       getSettings();
        drawChartJS();
       });
@@ -603,7 +640,7 @@ console.log(BetPositionArry)
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // BREAK RULES, CLIENT_BREAK_RULES, ClientLabel / CurrentOperatorId and
-// currentBreakRules() / detectClientLabel() moved to the TOP LEVEL of the file —
+// currentBreakRules() / applyClientLabel() moved to the TOP LEVEL of the file —
 // they must exist before drawChartJS() starts (Trigger() assigns CurrentOperatorId
 // early in the refresh, before this point in the code below).
 
