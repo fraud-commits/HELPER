@@ -109,13 +109,17 @@ function labelMatchesKey(label, key){
   // short keys ('rg') must sit between non-alphanumerics, not inside a word
   return new RegExp('(^|[^a-z0-9])' + k.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '([^a-z0-9]|$)').test(l);
 }
-function currentBreakRules(){
+function currentBreakRulesKey(){
   const keys = Object.keys(CLIENT_BREAK_RULES);
   for(let i = 0; i < keys.length; i++){
-    if(ClientLabel && labelMatchesKey(ClientLabel, keys[i])){ return CLIENT_BREAK_RULES[keys[i]]; }
+    if(ClientLabel && labelMatchesKey(ClientLabel, keys[i])){ return keys[i]; }
   }
-  if(CurrentOperatorId && CLIENT_BREAK_RULES[CurrentOperatorId]){ return CLIENT_BREAK_RULES[CurrentOperatorId]; }
-  return BREAK_RULES;
+  if(CurrentOperatorId && CLIENT_BREAK_RULES[CurrentOperatorId]){ return CurrentOperatorId; }
+  return '';
+}
+function currentBreakRules(){
+  const key = currentBreakRulesKey();
+  return key ? CLIENT_BREAK_RULES[key] : BREAK_RULES;
 }
 function detectClientLabel(){
   ClientLabel = '';
@@ -806,14 +810,19 @@ function BreakCounter(){
   gapTipUnpin();   // data refresh: drop a stale fixed tooltip
   gapTipHide(true);
 
-  let rules = currentBreakRules(); // client override (Title label / operator) or defaults
-  // legend reflects the rules actually in use (default vs client exception)
+  let key = currentBreakRulesKey();
+  let rules = key ? CLIENT_BREAK_RULES[key] : BREAK_RULES; // client override or defaults
+  // legend reflects the rules actually in use (default vs client exception) and
+  // names the SOURCE that matched: the Title label, or the operator id fallback
   let $brn = $('#break-rules-note');
   if($brn.length){
-    let clientTag = (rules !== BREAK_RULES && ClientLabel) ? ' (' + ClientLabel + ')' : '';
+    let src = '';
+    if(rules !== BREAK_RULES){
+      src = ' (' + ((ClientLabel && labelMatchesKey(ClientLabel, key)) ? ClientLabel : key) + ')';
+    }
     $brn.text(rules === BREAK_RULES
       ? 'gap 3–10 min = skip (est. missed rounds) · 10–30 min = short break · >30 min = long break'
-      : 'client rule' + clientTag + ': gap ' + rules.SKIP_MIN + '–' + rules.SKIP_MAX + ' min = skip · ' + rules.SKIP_MAX + '–' + rules.SHORT_MAX + ' min = short · >' + rules.SHORT_MAX + ' min = long');
+      : 'client rule' + src + ': gap ' + rules.SKIP_MIN + '–' + rules.SKIP_MAX + ' min = skip · ' + rules.SKIP_MAX + '–' + rules.SHORT_MAX + ' min = short · >' + rules.SHORT_MAX + ' min = long');
   }
 
   // --- sort a copy of rounds by timestamp (data order is not guaranteed) ---
