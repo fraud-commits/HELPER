@@ -71,6 +71,78 @@ let UnparsedTimeCount = 0;
 let $chartTip = null;
 // pinned round id (click) vs transient hover preview; last round shown (rebuild guard)
 let chartTipPinned = null, chartTipFor = null;
+
+//////////////////////////////////////////////////////////////////////////////////////
+// BREAK RULES (explicitly defined):
+//   gap between two consecutive played rounds < 3 min   -> Sequential
+//   3 min  <= gap < 10 min  -> SKIP  (player watched but did not bet, est. skipped rounds counted)
+//   10 min <= gap < 30 min  -> SHORT BREAK
+//   gap    >= 30 min        -> LONG BREAK
+// Rounds are sorted by time first; timestamps that cannot be parsed are skipped.
+//
+// NOTE: these bindings sit at the TOP LEVEL on purpose. Almost all of the analysis
+// code lives inside drawChartJS()'s .then() callback, and Trigger() runs there before
+// any declaration further down — a `let` declared inside that callback would be in the
+// temporal dead zone when Trigger() assigns CurrentOperatorId ("Cannot access ... before
+// initialization"), and detectClientLabel() would not exist for the init call.
+const BREAK_RULES = { SKIP_MIN: 3, SKIP_MAX: 10, SHORT_MAX: 30 };
+// ---- client (workbook level) identification ---------------------------------
+// Sub Partner Id / CompanyCode differs for every player, so it cannot be the
+// client key. The client name comes from the workbook itself: a Title/Text zone
+// on the dashboard (e.g. "3.Mac88_PC3") is read first, the dashboard's own name
+// (the tab) is the fallback. Generic zone names ("Title 1", "Dashboard") are ignored.
+const CLIENT_BREAK_RULES = {
+  // workbook Title / dashboard-name keys (checked first)
+  'mac88':       { SKIP_MIN: 5, SKIP_MAX: 10, SHORT_MAX: 30 },
+  'royalgaming': { SKIP_MIN: 5, SKIP_MAX: 10, SHORT_MAX: 30 },
+  'rg':          { SKIP_MIN: 5, SKIP_MAX: 10, SHORT_MAX: 30 },
+  // exact operator id fallback when no Title is set on the dashboard
+  'rolex:southbook.in': { SKIP_MIN: 5, SKIP_MAX: 10, SHORT_MAX: 30 },
+  'headerspoint':       { SKIP_MIN: 5, SKIP_MAX: 10, SHORT_MAX: 30 }
+};
+let ClientLabel = '';       // detected client label (from the Title / dashboard name)
+let CurrentOperatorId = '';
+
+function labelMatchesKey(label, key){
+  const l = String(label).toLowerCase(), k = String(key).toLowerCase();
+  if(k.length >= 4){ return l.indexOf(k) >= 0; }   // 'mac88' matches "3.Mac88_PC3"
+  // short keys ('rg') must sit between non-alphanumerics, not inside a word
+  return new RegExp('(^|[^a-z0-9])' + k.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '([^a-z0-9]|$)').test(l);
+}
+function currentBreakRules(){
+  const keys = Object.keys(CLIENT_BREAK_RULES);
+  for(let i = 0; i < keys.length; i++){
+    if(ClientLabel && labelMatchesKey(ClientLabel, keys[i])){ return CLIENT_BREAK_RULES[keys[i]]; }
+  }
+  if(CurrentOperatorId && CLIENT_BREAK_RULES[CurrentOperatorId]){ return CLIENT_BREAK_RULES[CurrentOperatorId]; }
+  return BREAK_RULES;
+}
+function detectClientLabel(){
+  ClientLabel = '';
+  let found = [];
+  let generic = /^(title|text|blank|image|dashboard|sheet|page)([\s_-]*\d+)?$/i;
+  try{
+    const dash = tableau.extensions.dashboardContent.dashboard;
+    const objs = dash.objects || [];
+    for(let i = 0; i < objs.length; i++){
+      const o = objs[i];
+      const tp = String(o && o.type ? o.type : '').toLowerCase();
+      if(tp !== 'title' && tp !== 'text'){ continue; }
+      const nm = o.name ? String(o.name).trim() : '';   // .name needs Extensions lib >= 1.1.0
+      if(!nm){ continue; }
+      found.push('zone "' + nm + '"');
+      if(!ClientLabel && !generic.test(nm)){ ClientLabel = nm; }
+    }
+    const dn = dash.name ? String(dash.name).trim() : '';
+    if(dn){ found.push('dashboard "' + dn + '"'); }
+    if(!ClientLabel && dn && !generic.test(dn)){ ClientLabel = dn; }
+  }catch(e){ found.push('error: ' + e); }
+  $('.client-tag').toggle(!!ClientLabel);
+  $('.client-name').text(ClientLabel);
+  if(found.length){ $('.client-tag').attr('title', 'client label sources: ' + found.join(' · ')); }
+  console.log('HELPER client label:', ClientLabel || '(none)', found);
+}
+
 setTimeout(function(){
   if(!booted){
     showExtError('Tableau did not return data in 15s. Check: 1) the fraud sheet is on this dashboard, 2) Player Id / Timestamp parameters are set, 3) the extension was re-added from the current .trex — then Reload.');
@@ -526,71 +598,11 @@ if (element3 ) {
 console.log(BetPositionArry)
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-//////////////////////////////////////////////////////////////////////////////////////
-// BREAK RULES (explicitly defined):
-//   gap between two consecutive played rounds < 3 min   -> Sequential
-//   3 min  <= gap < 10 min  -> SKIP  (player watched but did not bet, est. skipped rounds counted)
-//   10 min <= gap < 30 min  -> SHORT BREAK
-//   gap    >= 30 min        -> LONG BREAK
-// Rounds are sorted by time first; timestamps that cannot be parsed are skipped.
+// BREAK RULES, CLIENT_BREAK_RULES, ClientLabel / CurrentOperatorId and
+// currentBreakRules() / detectClientLabel() moved to the TOP LEVEL of the file —
+// they must exist before drawChartJS() starts (Trigger() assigns CurrentOperatorId
+// early in the refresh, before this point in the code below).
 
-const BREAK_RULES = { SKIP_MIN: 3, SKIP_MAX: 10, SHORT_MAX: 30 };
-// ---- client (workbook level) identification ---------------------------------
-// Sub Partner Id / CompanyCode differs for every player, so it cannot be the
-// client key. The client name comes from the workbook itself: a Title/Text zone
-// on the dashboard (e.g. "3.Mac88_PC3") is read first, the dashboard's own name
-// (the tab) is the fallback. Generic zone names ("Title 1", "Dashboard") are ignored.
-const CLIENT_BREAK_RULES = {
-  // workbook Title / dashboard-name keys (checked first)
-  'mac88':       { SKIP_MIN: 5, SKIP_MAX: 10, SHORT_MAX: 30 },
-  'royalgaming': { SKIP_MIN: 5, SKIP_MAX: 10, SHORT_MAX: 30 },
-  'rg':          { SKIP_MIN: 5, SKIP_MAX: 10, SHORT_MAX: 30 },
-  // exact operator id fallback when no Title is set on the dashboard
-  'rolex:southbook.in': { SKIP_MIN: 5, SKIP_MAX: 10, SHORT_MAX: 30 },
-  'headerspoint':       { SKIP_MIN: 5, SKIP_MAX: 10, SHORT_MAX: 30 }
-};
-let ClientLabel = '';       // detected client label (from the Title / dashboard name)
-let CurrentOperatorId = '';
-
-function labelMatchesKey(label, key){
-  const l = String(label).toLowerCase(), k = String(key).toLowerCase();
-  if(k.length >= 4){ return l.indexOf(k) >= 0; }   // 'mac88' matches "3.Mac88_PC3"
-  // short keys ('rg') must sit between non-alphanumerics, not inside a word
-  return new RegExp('(^|[^a-z0-9])' + k.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '([^a-z0-9]|$)').test(l);
-}
-function currentBreakRules(){
-  const keys = Object.keys(CLIENT_BREAK_RULES);
-  for(let i = 0; i < keys.length; i++){
-    if(ClientLabel && labelMatchesKey(ClientLabel, keys[i])){ return CLIENT_BREAK_RULES[keys[i]]; }
-  }
-  if(CurrentOperatorId && CLIENT_BREAK_RULES[CurrentOperatorId]){ return CLIENT_BREAK_RULES[CurrentOperatorId]; }
-  return BREAK_RULES;
-}
-function detectClientLabel(){
-  ClientLabel = '';
-  let found = [];
-  let generic = /^(title|text|blank|image|dashboard|sheet|page)([\s_-]*\d+)?$/i;
-  try{
-    const dash = tableau.extensions.dashboardContent.dashboard;
-    const objs = dash.objects || [];
-    for(let i = 0; i < objs.length; i++){
-      const o = objs[i];
-      const tp = String(o && o.type ? o.type : '').toLowerCase();
-      if(tp !== 'title' && tp !== 'text'){ continue; }
-      const nm = o.name ? String(o.name).trim() : '';   // .name needs Extensions lib >= 1.1.0
-      if(!nm){ continue; }
-      found.push('zone "' + nm + '"');
-      if(!ClientLabel && !generic.test(nm)){ ClientLabel = nm; }
-    }
-    const dn = dash.name ? String(dash.name).trim() : '';
-    if(dn){ found.push('dashboard "' + dn + '"'); }
-    if(!ClientLabel && dn && !generic.test(dn)){ ClientLabel = dn; }
-  }catch(e){ found.push('error: ' + e); }
-  $('.client-tag').toggle(!!ClientLabel);
-  $('.client-name').text(ClientLabel);
-  if(found.length){ $('.client-tag').attr('title', 'client label sources: ' + found.join(' · ')); }
-  console.log('HELPER client label:', ClientLabel || '(none)', found);
-}
 let EstSkippedRounds = 0; // estimated number of game rounds missed during skips
 
 // Median gap between rounds on a table, measured on the sample file (38k rounds).
