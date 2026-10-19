@@ -275,6 +275,7 @@ function Trigger(){
   // raw .value (not formattedValue) so ids never pick up thousand separators etc.
   function cellId(cell){ return (cell && cell.value !== undefined && cell.value !== null) ? String(cell.value) : String(cell ? cell.formattedValue : ''); }
   let operatorId = cellId(worksheetData[0][CompanyCode]);
+  CurrentOperatorId = operatorId;
   let playerId = cellId(worksheetData[0][UserId]);
   $('.PlayerId').text(playerId);
   $('.OperatorId').text(operatorId);
@@ -533,6 +534,16 @@ console.log(BetPositionArry)
 // Rounds are sorted by time first; timestamps that cannot be parsed are skipped.
 
 const BREAK_RULES = { SKIP_MIN: 3, SKIP_MAX: 10, SHORT_MAX: 30 };
+// per-client overrides: some operators run slow tables where a 3–5 min gap is
+// the normal round cadence, not a skipped round (e.g. Teenpatti One Day).
+// Key = operator id (Sub Partner Id / CompanyCode column).
+const CLIENT_BREAK_RULES = {
+  'rolex:southbook.in': { SKIP_MIN: 5, SKIP_MAX: 10, SHORT_MAX: 30 }
+};
+let CurrentOperatorId = '';
+function currentBreakRules(){
+  return CLIENT_BREAK_RULES[CurrentOperatorId] || BREAK_RULES;
+}
 let EstSkippedRounds = 0; // estimated number of game rounds missed during skips
 
 // Median gap between rounds on a table, measured on the sample file (38k rounds).
@@ -736,6 +747,15 @@ function BreakCounter(){
   gapTipUnpin();   // data refresh: drop a stale fixed tooltip
   gapTipHide(true);
 
+  let rules = currentBreakRules(); // per-client override or the default rules
+  // legend reflects the rules actually in use (default vs client exception)
+  let $brn = $('#break-rules-note');
+  if($brn.length){
+    $brn.text(rules === BREAK_RULES
+      ? 'gap 3–10 min = skip (est. missed rounds) · 10–30 min = short break · >30 min = long break'
+      : 'client rule: gap ' + rules.SKIP_MIN + '–' + rules.SKIP_MAX + ' min = skip · ' + rules.SKIP_MAX + '–' + rules.SHORT_MAX + ' min = short · >' + rules.SHORT_MAX + ' min = long');
+  }
+
   // --- sort a copy of rounds by timestamp (data order is not guaranteed) ---
   let sorted = RoundArry.slice().map(function(r){
     return { r: r, t: parseRoundTime(r.RoundTime) };
@@ -747,7 +767,7 @@ function BreakCounter(){
   let gaps = [];
   for(let i = 1; i < sorted.length; i++){
     let g = sorted[i].t.diff(sorted[i-1].t, 'minutes', true);
-    if(g >= 0 && g < BREAK_RULES.SKIP_MIN){ gaps.push(g); }
+    if(g >= 0 && g < rules.SKIP_MIN){ gaps.push(g); }
   }
   gaps.sort(function(a, b){ return a - b; });
   // median gap of fast (sequential) intervals; if none, fall back to the
@@ -771,16 +791,16 @@ function BreakCounter(){
     let gap = sorted[i].t.diff(prevValid.t, 'minutes', true);
     let gapType, gapClass, gapEst = 0;
 
-    if(gap < BREAK_RULES.SKIP_MIN){
+    if(gap < rules.SKIP_MIN){
       SequentialGame += 1;
       gapType = 'sequential'; gapClass = 'badge-sql-c';
-    }else if(gap < BREAK_RULES.SKIP_MAX){
+    }else if(gap < rules.SKIP_MAX){
       // SKIP: player stayed but did not bet; estimate how many game rounds were missed
       RoundSkipp += 1;
       gapEst = Math.max(1, Math.round(gap / cadence) - 1);
       EstSkippedRounds += gapEst;
       gapType = 'SKIP'; gapClass = 'badge-skip-c';
-    }else if(gap < BREAK_RULES.SHORT_MAX){
+    }else if(gap < rules.SHORT_MAX){
       ShortBreak += 1;
       gapType = 'SHORT BREAK'; gapClass = 'badge-short-c';
     }else{
@@ -1708,7 +1728,7 @@ function computeWinnerAnswers(){
   else{ cont = 'Often skips rounds'; }
   let contWhy;
   if(rounds == 1){ contWhy = 'only 1 round in the session'; }
-  else if(RoundSkipp == 0){ contWhy = rounds + ' played rounds, no skip gaps (3–10 min)'; }
+  else if(RoundSkipp == 0){ contWhy = rounds + ' played rounds, no skip gaps (' + currentBreakRules().SKIP_MIN + '–' + currentBreakRules().SKIP_MAX + ' min)'; }
   else{ contWhy = 'est. ' + EstSkippedRounds + ' skipped of ' + (rounds + EstSkippedRounds) + ' (' + skipShare.toFixed(0) + '%) in ' + RoundSkipp + ' skip gap(s)'; }
   answers.push({group: 'Report dropdowns', field: 'Bet continuity', value: cont, why: contWhy});
 
