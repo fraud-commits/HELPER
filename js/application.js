@@ -84,6 +84,7 @@ setTimeout(function(){
 $(document).ready(function () {
    tableau.extensions.initializeAsync().then(function () {
       // Draw the chart when initialising the dashboard.
+      detectClientLabel();   // read the client name from the workbook Title
       getSettings();
       drawChartJS();
       // Set up the Settings Event Listener.
@@ -534,16 +535,61 @@ console.log(BetPositionArry)
 // Rounds are sorted by time first; timestamps that cannot be parsed are skipped.
 
 const BREAK_RULES = { SKIP_MIN: 3, SKIP_MAX: 10, SHORT_MAX: 30 };
-// per-client overrides: some operators run slow tables where a 3–5 min gap is
-// the normal round cadence, not a skipped round (e.g. Teenpatti One Day).
-// Key = operator id (Sub Partner Id / CompanyCode column).
+// ---- client (workbook level) identification ---------------------------------
+// Sub Partner Id / CompanyCode differs for every player, so it cannot be the
+// client key. The client name comes from the workbook itself: a Title/Text zone
+// on the dashboard (e.g. "3.Mac88_PC3") is read first, the dashboard's own name
+// (the tab) is the fallback. Generic zone names ("Title 1", "Dashboard") are ignored.
 const CLIENT_BREAK_RULES = {
+  // workbook Title / dashboard-name keys (checked first)
+  'mac88':       { SKIP_MIN: 5, SKIP_MAX: 10, SHORT_MAX: 30 },
+  'royalgaming': { SKIP_MIN: 5, SKIP_MAX: 10, SHORT_MAX: 30 },
+  'rg':          { SKIP_MIN: 5, SKIP_MAX: 10, SHORT_MAX: 30 },
+  // exact operator id fallback when no Title is set on the dashboard
   'rolex:southbook.in': { SKIP_MIN: 5, SKIP_MAX: 10, SHORT_MAX: 30 },
-  'headerspoint': { SKIP_MIN: 5, SKIP_MAX: 10, SHORT_MAX: 30 }
+  'headerspoint':       { SKIP_MIN: 5, SKIP_MAX: 10, SHORT_MAX: 30 }
 };
+let ClientLabel = '';       // detected client label (from the Title / dashboard name)
 let CurrentOperatorId = '';
+
+function labelMatchesKey(label, key){
+  const l = String(label).toLowerCase(), k = String(key).toLowerCase();
+  if(k.length >= 4){ return l.indexOf(k) >= 0; }   // 'mac88' matches "3.Mac88_PC3"
+  // short keys ('rg') must sit between non-alphanumerics, not inside a word
+  return new RegExp('(^|[^a-z0-9])' + k.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '([^a-z0-9]|$)').test(l);
+}
 function currentBreakRules(){
-  return CLIENT_BREAK_RULES[CurrentOperatorId] || BREAK_RULES;
+  const keys = Object.keys(CLIENT_BREAK_RULES);
+  for(let i = 0; i < keys.length; i++){
+    if(ClientLabel && labelMatchesKey(ClientLabel, keys[i])){ return CLIENT_BREAK_RULES[keys[i]]; }
+  }
+  if(CurrentOperatorId && CLIENT_BREAK_RULES[CurrentOperatorId]){ return CLIENT_BREAK_RULES[CurrentOperatorId]; }
+  return BREAK_RULES;
+}
+function detectClientLabel(){
+  ClientLabel = '';
+  let found = [];
+  let generic = /^(title|text|blank|image|dashboard|sheet|page)([\s_-]*\d+)?$/i;
+  try{
+    const dash = tableau.extensions.dashboardContent.dashboard;
+    const objs = dash.objects || [];
+    for(let i = 0; i < objs.length; i++){
+      const o = objs[i];
+      const tp = String(o && o.type ? o.type : '').toLowerCase();
+      if(tp !== 'title' && tp !== 'text'){ continue; }
+      const nm = o.name ? String(o.name).trim() : '';   // .name needs Extensions lib >= 1.1.0
+      if(!nm){ continue; }
+      found.push('zone "' + nm + '"');
+      if(!ClientLabel && !generic.test(nm)){ ClientLabel = nm; }
+    }
+    const dn = dash.name ? String(dash.name).trim() : '';
+    if(dn){ found.push('dashboard "' + dn + '"'); }
+    if(!ClientLabel && dn && !generic.test(dn)){ ClientLabel = dn; }
+  }catch(e){ found.push('error: ' + e); }
+  $('.client-tag').toggle(!!ClientLabel);
+  $('.client-name').text(ClientLabel);
+  if(found.length){ $('.client-tag').attr('title', 'client label sources: ' + found.join(' · ')); }
+  console.log('HELPER client label:', ClientLabel || '(none)', found);
 }
 let EstSkippedRounds = 0; // estimated number of game rounds missed during skips
 
@@ -748,13 +794,14 @@ function BreakCounter(){
   gapTipUnpin();   // data refresh: drop a stale fixed tooltip
   gapTipHide(true);
 
-  let rules = currentBreakRules(); // per-client override or the default rules
+  let rules = currentBreakRules(); // client override (Title label / operator) or defaults
   // legend reflects the rules actually in use (default vs client exception)
   let $brn = $('#break-rules-note');
   if($brn.length){
+    let clientTag = (rules !== BREAK_RULES && ClientLabel) ? ' (' + ClientLabel + ')' : '';
     $brn.text(rules === BREAK_RULES
       ? 'gap 3–10 min = skip (est. missed rounds) · 10–30 min = short break · >30 min = long break'
-      : 'client rule: gap ' + rules.SKIP_MIN + '–' + rules.SKIP_MAX + ' min = skip · ' + rules.SKIP_MAX + '–' + rules.SHORT_MAX + ' min = short · >' + rules.SHORT_MAX + ' min = long');
+      : 'client rule' + clientTag + ': gap ' + rules.SKIP_MIN + '–' + rules.SKIP_MAX + ' min = skip · ' + rules.SKIP_MAX + '–' + rules.SHORT_MAX + ' min = short · >' + rules.SHORT_MAX + ' min = long');
   }
 
   // --- sort a copy of rounds by timestamp (data order is not guaranteed) ---

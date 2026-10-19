@@ -892,6 +892,22 @@ body.dark .badge-long-c{ background-color: #B03A44 !important; }
 }
 .Margin, .WinProcent{ white-space: nowrap; }
 
+/* detected client label (from the workbook Title) in the player bar */
+.client-tag{
+  display: none;
+  font-size: 12px;
+  padding: 2px 8px;
+  border: 1px solid var(--line-2);
+  border-radius: 10px;
+  background: var(--card-bg);
+  color: var(--muted);
+  white-space: nowrap;
+}
+.client-tag .client-name{
+  color: var(--brand-ink);
+  font-weight: 600;
+}
+
 /* Winner report suggestions */
 .ra-list{
   margin-top: 12px;
