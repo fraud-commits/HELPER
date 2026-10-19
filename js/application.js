@@ -538,7 +538,8 @@ const BREAK_RULES = { SKIP_MIN: 3, SKIP_MAX: 10, SHORT_MAX: 30 };
 // the normal round cadence, not a skipped round (e.g. Teenpatti One Day).
 // Key = operator id (Sub Partner Id / CompanyCode column).
 const CLIENT_BREAK_RULES = {
-  'rolex:southbook.in': { SKIP_MIN: 5, SKIP_MAX: 10, SHORT_MAX: 30 }
+  'rolex:southbook.in': { SKIP_MIN: 5, SKIP_MAX: 10, SHORT_MAX: 30 },
+  'headerspoint': { SKIP_MIN: 5, SKIP_MAX: 10, SHORT_MAX: 30 }
 };
 let CurrentOperatorId = '';
 function currentBreakRules(){
