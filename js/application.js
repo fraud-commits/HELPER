@@ -266,10 +266,12 @@ function winRateVerdict(rounds, wins, losses){
     winPct: decided > 0 ? wins / decided * 100 : 0,
     expected: expected,
     ci: ci,
-    enough: enough,
-    // the whole interval lies above / below the expected rate -> not chance
-    sigHigh: enough && ci[0] > expected,
-    sigLow: enough && ci[1] < expected,
+    enough: enough,           // enough rounds to trust a "within normal variation" verdict
+    // significance is decided by the interval alone: the whole interval above /
+    // below the expected rate. A fixed sample gate would hide real anomalies on
+    // short but extreme sessions (e.g. 20 wins in 24 rounds).
+    sigHigh: ci[0] > expected,
+    sigLow: ci[1] < expected,
     games: games,
     perGame: perGame
   };
@@ -279,9 +281,10 @@ function winNoteText(v){
   if(!v || v.decided <= 0){ return ''; }
   const exp = (v.expected * 100).toFixed(1) + '% expected';
   const ci = '95% CI ' + (v.ci[0] * 100).toFixed(1) + '–' + (v.ci[1] * 100).toFixed(1) + '%';
+  const small = v.enough ? '' : ' (n=' + v.decided + ', small sample)';
+  if(v.sigHigh){ return 'significantly above ' + exp + ' · ' + ci + small; }
+  if(v.sigLow){ return 'significantly below ' + exp + ' · ' + ci + small; }
   if(!v.enough){ return v.decided + ' decided rounds — too few to judge (' + WIN_SAMPLE_MIN + ' needed)'; }
-  if(v.sigHigh){ return 'significantly above ' + exp + ' · ' + ci; }
-  if(v.sigLow){ return 'significantly below ' + exp + ' · ' + ci; }
   return 'within normal variation · ' + ci;
 }
 
@@ -1530,18 +1533,19 @@ function generateFindings(){
   // ---- 1. Win rate vs theoretical expectation ----
   // A red flag only when the deviation from the expected rate of the game played
   // cannot be explained by chance (95% Wilson interval). Small samples are noise.
-  if(decided >= 20){
+  if(decided >= 10){
     let expTxt = (winVerdictF.expected * 100).toFixed(1) + '%';
     let ciTxt = '95% CI ' + (winVerdictF.ci[0] * 100).toFixed(1) + '–' + (winVerdictF.ci[1] * 100).toFixed(1) + '%';
-    if(!winVerdictF.enough){
-      add('success', 'Win rate ' + effWin.toFixed(1) + '% (' + WinRoundCnt + ' of ' + decided +
-          ' decided) — too few rounds to judge (' + WIN_SAMPLE_MIN + ' needed), expected ~' + expTxt + '.');
-    }else if(winVerdictF.sigHigh){
+    let small = winVerdictF.enough ? '' : ' (only ' + decided + ' decided rounds)';
+    if(winVerdictF.sigHigh){
       add('danger', '<b>Abnormally high win rate:</b> ' + effWin.toFixed(1) + '% (' + WinRoundCnt +
-          ' wins in ' + decided + ' decided rounds) is above the ~' + expTxt + ' expected for this game (' + ciTxt + ').');
+          ' wins in ' + decided + ' decided rounds) is above the ~' + expTxt + ' expected for this game (' + ciTxt + ')' + small + '.');
     }else if(winVerdictF.sigLow){
       add('success', 'Win rate ' + effWin.toFixed(1) + '% (' + WinRoundCnt + ' of ' + decided +
           ' decided) is below the ~' + expTxt + ' expected for this game (' + ciTxt + ') — no advantage play signs.');
+    }else if(!winVerdictF.enough){
+      add('success', 'Win rate ' + effWin.toFixed(1) + '% (' + WinRoundCnt + ' of ' + decided +
+          ' decided) — too few rounds to judge (' + WIN_SAMPLE_MIN + ' needed), expected ~' + expTxt + '.');
     }else{
       add('success', 'Win rate ' + effWin.toFixed(1) + '% (' + WinRoundCnt + ' of ' + decided +
           ' decided) is within normal variation for ~' + expTxt + ' expected (' + ciTxt + ').');
