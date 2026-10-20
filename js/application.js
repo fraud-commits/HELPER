@@ -186,6 +186,10 @@ function applyClientLabel(){
   let $inp = $('#client-label-input');
   if($inp.length){
     if(document.activeElement !== $inp[0]){ $inp.val(ClientLabel); }
+    // warn when the typed name matches no break-rule key (rules silently fall back to default)
+    let noRule = !!ClientLabel && !currentBreakRulesKey();
+    $inp.toggleClass('no-rule', noRule);
+    if(noRule){ src.push('no break rule for this name — default 3 min rules are used'); }
     $inp.attr('title', src.length
       ? 'client label sources: ' + src.join(' · ')
       : 'no client label found — type the client name and press Enter');
@@ -1036,21 +1040,14 @@ function BetProgression (){
 
     let cur = i;
     let next;
-    let nextn;
 
     if(i == RoundArry.length - 1){
 
       next =  RoundArry.length -1
-      nextn  = RoundArry.length -1
-
-    }else if(i == RoundArry.length - 2){
-
-      next = i + 1
-      nextn = i + 1
 
     }else{
+
       next = i + 1
-      nextn = i + 2
     }
 
     // transition cur -> next (chronological order guaranteed above):
@@ -1063,18 +1060,12 @@ function BetProgression (){
     let curBet = RoundArry[cur].BaseBet > 0 ? RoundArry[cur].BaseBet : RoundArry[cur].TotalRoundBet;
     let nextBet = RoundArry[next].BaseBet > 0 ? RoundArry[next].BaseBet : RoundArry[next].TotalRoundBet;
     let curNet = RoundArry[cur].TotalRoundNet;
-    let nextBetN = RoundArry[nextn].BaseBet > 0 ? RoundArry[nextn].BaseBet : RoundArry[nextn].TotalRoundBet;
     if (Math.abs(nextBet - curBet) <= curBet * 0.02){
       same += 1; //Flat
     }else if(nextBet > curBet && curNet <= 0){
       // raise after a loss → negative pattern (any size, not just 2x);
-      // back-to-back (2x ±2%, rounding counts) raises after losses tracked as Martingale
-      if(curBet * 1.96 <= nextBet && RoundArry[next].TotalRoundNet <= 0 &&
-         nextBet * 1.96 <= nextBetN){
-        martingeil += 1; // Martingale
-      }else{
-        negativ += 1; // Negative
-      }
+      // Martingale is detected separately below (it needs a run of 5+ doublings)
+      negativ += 1; // Negative
     }else if(nextBet > curBet){
       up += 1; // raise after a win → positive pattern
     }else if(curNet > 0){
@@ -1085,6 +1076,25 @@ function BetProgression (){
 
     
     }
+
+  // ---- Martingale: a run of >= 5 consecutive doublings (x2, 2% tolerance) after
+  // losses — 2 -> 4 -> 8 -> 16 -> 32 (and further). A shorter run is ordinary
+  // negative progression: two random bigger stakes are NOT a martingale system.
+  let mgRun = 0;
+  martingeil = 0;   // number of chains of >= 5 consecutive doublings
+  for(let i = 1; i < RoundArry.length; i++){
+    let prevRound = RoundArry[i-1], curRound = RoundArry[i];
+    let prevBet = prevRound.BaseBet > 0 ? prevRound.BaseBet : prevRound.TotalRoundBet;
+    let curBet = curRound.BaseBet > 0 ? curRound.BaseBet : curRound.TotalRoundBet;
+    if(prevRound.TotalRoundNet <= 0 && prevBet > 0 && curBet >= prevBet * 1.95){
+      // 1.95 (not 2.00) absorbs cent rounding of the stake — 384.16 -> 752.95 is
+      // 1.9599x and must still count as a doubling step
+      mgRun += 1;
+      if(mgRun >= 5){ martingeil += 1; mgRun = 0; }   // chain counted — look for the next one
+    }else{
+      mgRun = 0;
+    }
+  }
 
 
 
@@ -1529,12 +1539,12 @@ function generateFindings(){
     add('success', 'Flat betting throughout the session — consistent with normal play.');
   }
   if(negPct >= 30){
-    if(martingeil >= 2){
-      add('info', 'Martingale betting system (doubling stakes after losses): ' + martingeil +
-          ' doubling step(s), negative pattern in ' + negPct.toFixed(0) + '% of rounds.');
+    if(martingeil >= 1){
+      add('info', 'Martingale betting system (5+ consecutive doublings after losses): ' + martingeil +
+          ' chain(s) detected, negative pattern in ' + negPct.toFixed(0) + '% of rounds.');
     }else{
       add('info', 'Negative progression (raises stakes after losses) in ' + negPct.toFixed(0) +
-          '% of rounds — no doubling chains, acceptable for roulette if other indicators are clean.');
+          '% of rounds — no martingale chain (5+ doublings), acceptable for roulette if other indicators are clean.');
     }
   }
   if(upPct >= 50){
@@ -1805,14 +1815,14 @@ function computeWinnerAnswers(){
   // Chaotic is a session-level verdict — both systems mixed with no dominance —
   // never a catch-all transition bucket.
   let samePct  = p(same);
-  let negPct   = p(negativ + martingeil);
+  let negPct   = p(negativ);
   let upPct2   = p(up);
 
   let prog;
   if(rounds <= 1){ prog = 'Other one'; }
+  else if(martingeil >= 1 && negPct >= 50){ prog = 'Martingale betting system'; }
   else if(samePct >= 70){ prog = 'Flat wagers'; }
   else if(negPct >= 70){ prog = 'Negative progression'; }
-  else if(martingeil >= 2 && negPct >= 50){ prog = 'Martingale betting system'; }
   else if(negPct >= 50){ prog = 'Mainly negative betting progression'; }
   else if(upPct2 >= 85){ prog = 'Positive progression'; }
   else if(upPct2 >= 60){ prog = 'Progressive betting'; }
@@ -1832,7 +1842,8 @@ function computeWinnerAnswers(){
   let progWhy;
   if(rounds <= 1){ progWhy = 'only 1 round in the session'; }
   else{
-    progWhy = 'flat ' + samePct.toFixed(0) + '% · negative ' + negPct.toFixed(0) + '% · positive ' + upPct2.toFixed(0) + '% of ' + rounds + ' rounds';
+    progWhy = 'flat ' + samePct.toFixed(0) + '% · negative ' + negPct.toFixed(0) + '% · positive ' + upPct2.toFixed(0) + '% of ' + rounds + ' rounds' +
+      (martingeil >= 1 ? ' · ' + martingeil + ' martingale chain(s) of 5+ doublings' : '');
   }
   answers.push({group: 'Report dropdowns', field: 'Betting progression', value: prog, why: progWhy});
 
