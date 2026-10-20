@@ -1584,8 +1584,16 @@ function generateFindings(){
   // erratic = both systems strongly present with no clear dominance
   // (a 56/24 martingale-style split is dominance, not chaos)
   if(rounds >= 15 && negPct >= 25 && upPct >= 25 && Math.abs(negPct - upPct) < 25){
-    add('warning', '<b>Erratic strategy:</b> no consistent staking system — negative pattern in ' + negPct.toFixed(0) +
-        '% and positive pattern in ' + upPct.toFixed(0) + '% of rounds — could indicate testing, scripting or manipulation.');
+    if(isLowPositionGame(domGame)){
+      // card games have only a few positions: mixing sides and stake sizes is
+      // normal play, and the bot check covers the scripting question separately
+      add('info', 'Erratic bet sizing: negative pattern in ' + negPct.toFixed(0) +
+          '% and positive pattern in ' + upPct.toFixed(0) + '% of rounds — in ' + domGame.toLowerCase() +
+          ' the player mixes sides and stake sizes, which is normal play; noted for the report.');
+    }else{
+      add('warning', '<b>Erratic strategy:</b> no consistent staking system — negative pattern in ' + negPct.toFixed(0) +
+          '% and positive pattern in ' + upPct.toFixed(0) + '% of rounds — could indicate testing, scripting or manipulation.');
+    }
   }
 
   // ---- 3b. Win / loss streaks (tilt vs system; ties skipped like in effWin) ----
