@@ -288,6 +288,93 @@ function winNoteText(v){
   return 'within normal variation · ' + ci;
 }
 
+// ---- session margin vs break-even -------------------------------------------
+// The margin is red only when the session is statistically PROFITABLE (the whole
+// 95% interval above break-even). A high margin on a handful of rounds is luck.
+const EXPECTED_MARGIN = {
+  roulette: -0.027,      // single zero: -1/37 of the turnover
+  american: -0.0526,     // double zero: -2/38
+  blackjack: -0.015,     // basic strategy, roughly -1.5%
+  default: -0.020        // even-money games: typical 1-3% rake
+};
+const MARGIN_SAMPLE_MIN = 10;
+function expectedMargin(gameType){
+  const g = String(gameType || '').toLowerCase();
+  if(!g){ return EXPECTED_MARGIN.default; }
+  if(/blackjack/.test(g)){ return EXPECTED_MARGIN.blackjack; }
+  if(/roulette|rouge/.test(g)){
+    return /american|doubler|double\s?zero/.test(g) ? EXPECTED_MARGIN.american : EXPECTED_MARGIN.roulette;
+  }
+  return EXPECTED_MARGIN.default;
+}
+// two-sided 95% critical value of Student's t (df = n-1), interpolated
+function tCrit95(n){
+  const df = Math.max(1, Math.round(n) - 1);
+  const table = [[1,12.706],[2,4.303],[3,3.182],[4,2.776],[5,2.571],[6,2.447],[7,2.365],
+                  [8,2.306],[9,2.262],[10,2.228],[12,2.179],[15,2.131],[20,2.086],[25,2.060],
+                  [30,2.042],[40,2.021],[60,2.000],[120,1.980]];
+  if(df >= 120){ return 1.96; }
+  for(let i = 0; i < table.length; i++){
+    if(df <= table[i][0]){
+      if(i === 0){ return table[0][1]; }
+      const prev = table[i-1], cur = table[i];
+      const f = (df - prev[0]) / (cur[0] - prev[0]);
+      return prev[1] + f * (cur[1] - prev[1]);
+    }
+  }
+  return 1.96;
+}
+// 95% interval for the turnover-weighted session margin (delta method on
+// M = mean(net) / mean(bet)) and the verdict against break-even
+function marginVerdict(rounds, totalNet, totalBet){
+  const n = rounds.length;
+  const out = {n:n, marginPct:0, expected:EXPECTED_MARGIN.default, ciPct:[0,0], se:0,
+               enough:false, sigHigh:false, sigLow:false, games:[]};
+  if(n < 2 || !totalBet){ return out; }
+  const perGame = {};
+  let sumNet = 0, sumBet = 0, sumNet2 = 0, sumBet2 = 0, sumNetBet = 0;
+  for(let i = 0; i < n; i++){
+    const r = rounds[i];
+    const bet = r.TotalRoundBet || 0, net = r.TotalRoundNet || 0;
+    sumNet += net; sumBet += bet;
+    sumNet2 += net * net; sumBet2 += bet * bet; sumNetBet += net * bet;
+    const g = r.GameType || 'Unknown';
+    if(!perGame[g]){ perGame[g] = {bet:0, exp:expectedMargin(g)}; }
+    perGame[g].bet += bet;
+  }
+  const margin = sumNet / sumBet;
+  const meanNet = sumNet / n, meanBet = sumBet / n;
+  const varNet = Math.max(0, (sumNet2 - n * meanNet * meanNet) / (n - 1));
+  const varBet = Math.max(0, (sumBet2 - n * meanBet * meanBet) / (n - 1));
+  const covNB = (sumNetBet - n * meanNet * meanBet) / (n - 1);
+  const inner = varNet + margin * margin * varBet - 2 * margin * covNB;
+  const se = Math.sqrt(Math.max(0, inner)) / (meanBet * Math.sqrt(n));
+  let expSum = 0;
+  const games = Object.keys(perGame);
+  for(let i = 0; i < games.length; i++){ expSum += perGame[games[i]].exp * perGame[games[i]].bet; }
+  const expected = sumBet > 0 ? expSum / sumBet : EXPECTED_MARGIN.default;
+  const t = tCrit95(n);
+  const lo = margin - t * se, hi = margin + t * se;
+  out.marginPct = margin * 100;
+  out.expected = expected;
+  out.se = se;
+  out.ciPct = [lo * 100, hi * 100];
+  out.enough = n >= MARGIN_SAMPLE_MIN;
+  out.sigHigh = out.enough && lo > 0;   // statistically profitable session
+  out.sigLow = out.enough && hi < 0;    // statistically losing session
+  out.games = games;
+  return out;
+}
+function marginNoteText(v){
+  if(!v || v.n < 2){ return ''; }
+  const ci = '95% CI ' + v.ciPct[0].toFixed(1) + '–' + v.ciPct[1].toFixed(1) + '%';
+  const small = v.enough ? '' : ' (n=' + v.n + ', small sample)';
+  if(v.sigHigh){ return 'significantly above break-even · ' + ci + small; }
+  if(v.sigLow){ return 'below break-even · ' + ci + small; }
+  if(!v.enough){ return v.n + ' rounds — too few to judge (' + MARGIN_SAMPLE_MIN + ' needed)'; }
+  return 'within expected range · ' + ci;
+}
+
 setTimeout(function(){
   if(!booted){
     showExtError('Tableau did not return data in 15s. Check: 1) the fraud sheet is on this dashboard, 2) Player Id / Timestamp parameters are set, 3) the extension was re-added from the current .trex — then Reload.');
@@ -550,12 +637,14 @@ Trigger();
     minimumFractionDigits: 2,
     maximumFractionDigits: 2
   })).toggleClass('neg-val', TotalNet < 0);
-  $('.Margin').text(Margin.toFixed(2) + "%").toggleClass('neg-val', Margin >= 50);
-  // session margin bar encodes RISK, not the sign: teal in the normal band,
-  // neutral grey when the player loses (casino profits — nothing to flag),
-  // red only when abnormally high (>= 50%, worth attention);
-  // diverging from the centre zero (±100% scale clamped, 100% = half the track)
-  let mHigh = Margin >= 50;
+  // session margin: red only when the session is statistically PROFITABLE (the
+  // whole 95% interval above break-even) — a high margin on a few rounds is luck.
+  // The bar encodes RISK, not the sign: teal in the normal band, neutral grey when
+  // the player loses (casino profits — nothing to flag), diverging from the centre
+  // zero (±100% scale clamped, 100% = half the track)
+  let mVerdict = marginVerdict(RoundArry, TotalNet, TotalBet);
+  let mHigh = mVerdict.sigHigh;
+  $('.Margin').text(Margin.toFixed(2) + "%").toggleClass('neg-val', mHigh);
   let mClamped = Math.max(-100, Math.min(100, Margin));
   let mBar = $('.margin-bar')
     .toggleClass('bar-pos', Margin >= 0 && !mHigh)
@@ -567,6 +656,7 @@ Trigger();
     .toggleClass('dot-pos', Margin >= 0 && !mHigh)
     .toggleClass('dot-minus', Margin < 0)
     .toggleClass('dot-neg', mHigh);
+  $('.margin-note').text(marginNoteText(mVerdict)).toggleClass('is-sig', mHigh);
 
 
 
@@ -1513,6 +1603,8 @@ function generateFindings(){
   let effWin   = decided > 0 ? WinRoundCnt / decided * 100 : 0;
   // expected rate for the game(s) played + 95% Wilson interval (stat. significance)
   let winVerdictF = winRateVerdict(RoundArry, WinRoundCnt, LossRoundCnt);
+  // session margin vs break-even (95% interval, delta method)
+  let marginVerdictF = marginVerdict(RoundArry, TotalNet, TotalBet);
   let avgBet   = rounds  > 0 ? TotalBet / rounds : 0;
   let maxRound = null;
 
@@ -1552,9 +1644,22 @@ function generateFindings(){
     }
   }
 
+  // ---- 1b. Session margin vs break-even (statistical) ----
+  if(marginVerdictF.n >= 10){
+    let mCiTxt = '95% CI ' + marginVerdictF.ciPct[0].toFixed(1) + '–' + marginVerdictF.ciPct[1].toFixed(1) + '%';
+    if(marginVerdictF.sigHigh){
+      add(winVerdictF.sigHigh ? 'info' : 'danger',
+          '<b>Session margin ' + (marginVerdictF.marginPct >= 0 ? '+' : '') + marginVerdictF.marginPct.toFixed(1) + '%</b> is statistically above break-even (' +
+          mCiTxt + ')' + (marginVerdictF.enough ? '' : ', only ' + marginVerdictF.n + ' rounds') +
+          ' — the player is ahead of the house in this session.');
+    }else if(marginVerdictF.sigLow){
+      add('success', 'Session margin ' + marginVerdictF.marginPct.toFixed(1) + '% is below break-even (' + mCiTxt + ').');
+    }
+  }
+
   // ---- 2. Session result: profit alone is routine — flag it only from €50k ----
   if(TotalNet >= 50000){
-    let lvl = winVerdictF.sigHigh ? 'danger' : 'warning';
+    let lvl = (winVerdictF.sigHigh || marginVerdictF.sigHigh) ? 'danger' : 'warning';
     add(lvl, '<b>Player finished in profit:</b> +' + eur(TotalNet) + ' (margin +' + Margin.toFixed(2) + '%).');
   }
 
