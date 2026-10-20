@@ -691,6 +691,35 @@ function typicalRoundMin(roundsArr){
   return DEFAULT_ROUND_MIN;
 }
 
+// most frequent game type of the rounds in scope (checks are game-aware)
+function dominantGameType(roundsArr){
+  let freq = {};
+  for(let i = 0; i < roundsArr.length; i++){
+    let g = String((roundsArr[i] && roundsArr[i].GameType) || 'Unknown');
+    freq[g] = (freq[g] || 0) + 1;
+  }
+  let best = '', bestN = 0;
+  for(let k in freq){ if(freq[k] > bestN){ bestN = freq[k]; best = k; } }
+  return best || 'Unknown';
+}
+
+// median gap (minutes) measured for a game type — the "normal pace" baseline
+function typicalRoundMinForGame(gameType){
+  const g = String(gameType || '').toLowerCase().replace(/\s+/g, '');
+  if(!g){ return DEFAULT_ROUND_MIN; }
+  for(let k in TYPICAL_ROUND_MIN){
+    if(g.indexOf(String(k).toLowerCase().replace(/\s+/g, '')) >= 0){ return TYPICAL_ROUND_MIN[k]; }
+  }
+  return DEFAULT_ROUND_MIN;
+}
+
+// games with only a few natural bet positions (baccarat has 2 sides): repeating
+// bets are the norm there, so the "few repeating bets" bot signal does not apply
+function isLowPositionGame(gameType){
+  return /baccarat|blackjack|teenpatti|cards|andar|bahar|holdem|poker|dragontiger|hilo|sicbo|bacbo/i
+    .test(String(gameType || '').replace(/\s+/g, ''));
+}
+
 function parseRoundTime(t){
   // strict first (DD/MM before MM/DD matters: 09/10 = 9 Oct, not 10 Sep).
   // Single-letter tokens reject zero-padded values in strict mode, so both
@@ -1434,6 +1463,7 @@ function generateFindings(){
   // ---- roulette layout coverage (computed early: it explains a high win rate) ----
   // a round that covers most of the wheel wins almost regardless of the ball, so
   // a high win rate of such a player is a consequence of coverage, not of an edge
+  let domGame = dominantGameType(RoundArry);   // game the session is mostly about
   let coverStats = {total:0, max:0, maxRound:null, maxPockets:37, heavy:0, heavyMin:28, redLine:0};
   for(let i = 0; i < rounds; i++){
     const r = RoundArry[i];
@@ -1547,10 +1577,14 @@ function generateFindings(){
     let ls = longest(false), ws = longest(true);
     if(ls.len >= 4){
       let tilt = ls.avg >= 1.5;
-      add(tilt ? 'warning' : 'info',
+      // A losing streak is not a risk for the operator — the session is at a loss.
+      // It is a behaviour note (tilt / chasing losses) for AML and responsible-gaming
+      // monitoring, so it stays an info note and does not land in "needs attention".
+      add('info',
           '<b>Max loss streak: ' + ls.len + ' rounds</b>' +
           (ls.avg > 0 ? ' (avg raise ' + ls.avg.toFixed(1) + '× per step)' : '') +
-          (tilt ? ' — escalating stakes while losing, looks like tilting.' : ' — stakes kept flat, disciplined chasing.'));
+          (tilt ? ' — player escalates stakes after losses (tilt): note for AML and responsible-gaming monitoring, not a fraud risk — the session is at a loss.'
+                 : ' — stakes kept flat while losing, disciplined chasing.'));
     }
     if(ws.len >= 5){
       add('info', '<b>Max win streak: ' + ws.len + ' rounds</b>' +
@@ -1566,7 +1600,7 @@ function generateFindings(){
           ' chain(s) detected, negative pattern in ' + negPct.toFixed(0) + '% of rounds.');
     }else{
       add('info', 'Negative progression (raises stakes after losses) in ' + negPct.toFixed(0) +
-          '% of rounds — no martingale chain (5+ doublings), acceptable for roulette if other indicators are clean.');
+          '% of rounds — no martingale chain (5+ doublings), acceptable for ' + domGame.toLowerCase() + ' if other indicators are clean.');
     }
   }
   if(upPct >= 50){
@@ -1778,13 +1812,23 @@ function analyzeBot(){
   // ---- signals ----
   let sig = 0;
   let notes = [];
+  // game-aware baselines: baccarat has 2 sides, so "few repeating bets" is normal
+  // there; and a fast table is fast for everyone, not only for bots
+  let botGame = dominantGameType(RoundArry);
+  let lowPosGame = isLowPositionGame(botGame);
+  let gameTypicalMin = typicalRoundMinForGame(botGame);
 
   if(rounds > 500){ sig++; notes.push('very long session: ' + rounds + ' rounds (> 500) — bots play long, flat sessions without tiring'); }
-  if(entropy < 2.5 && distinctTypes > 0){ sig++; notes.push('few repeating bets: only ' + distinctTypes + ' bet type(s) used (' + entropy.toFixed(2) + ' bits) — bots stick to the same pattern'); }
+  if(entropy < 2.5 && distinctTypes > 0 && !lowPosGame){ sig++; notes.push('few repeating bets: only ' + distinctTypes + ' bet type(s) used (' + entropy.toFixed(2) + ' bits) — bots stick to the same pattern'); }
   // scripted play keeps the stake almost fixed; a human spreads it out
   if(betVar < 1.5 && avgBet > 0){ sig++; notes.push('stake almost never changes: max bet is only ' + (betVar > 0 ? betVar.toFixed(1) : '0') + '× the average'); }
-  // very fast, steady cadence (well under the ~40 s table median)
-  if(cadence > 0 && cadence < 0.5){ sig++; notes.push('plays very fast: median ' + (cadence * 60).toFixed(0) + ' s between rounds (normal is ~40 s) — bots do not hesitate'); }
+  // very fast, steady cadence — but only if it is fast for THAT game
+  // (baccarat tables run ~32 s, roulette ~40 s; 25 s on baccarat is normal)
+  if(cadence > 0 && cadence < 0.5 && cadence < gameTypicalMin * 0.7){
+    sig++;
+    notes.push('plays very fast: median ' + (cadence * 60).toFixed(0) + ' s between rounds (normal for ' +
+               botGame + ' is ~' + (gameTypicalMin * 60).toFixed(0) + ' s) — bots do not hesitate');
+  }
   if(rounds > 300 && breakCnt <= 1){ sig++; notes.push('at most one break in ' + rounds + ' rounds — a human usually pauses'); }
 
   let verdict, lvl;
