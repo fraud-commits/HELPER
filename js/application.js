@@ -277,15 +277,23 @@ function winRateVerdict(rounds, wins, losses){
   };
 }
 // short caption under the Win ratio value (why it is / is not flagged)
+// plain wording on purpose — the analyst should not need a statistics degree
 function winNoteText(v){
   if(!v || v.decided <= 0){ return ''; }
-  const exp = (v.expected * 100).toFixed(1) + '% expected';
-  const ci = '95% CI ' + (v.ci[0] * 100).toFixed(1) + '–' + (v.ci[1] * 100).toFixed(1) + '%';
-  const small = v.enough ? '' : ' (n=' + v.decided + ', small sample)';
-  if(v.sigHigh){ return 'significantly above ' + exp + ' · ' + ci + small; }
-  if(v.sigLow){ return 'significantly below ' + exp + ' · ' + ci + small; }
-  if(!v.enough){ return v.decided + ' decided rounds — too few to judge (' + WIN_SAMPLE_MIN + ' needed)'; }
-  return 'within normal variation · ' + ci;
+  const exp = (v.expected * 100).toFixed(1) + '%';
+  const range = (v.ci[0] * 100).toFixed(0) + '–' + (v.ci[1] * 100).toFixed(0) + '%';
+  const small = v.enough ? '' : ' · only ' + v.decided + ' rounds';
+  if(v.sigHigh){ return 'Too good to be chance — likely ' + range + ' vs ' + exp + ' expected' + small; }
+  if(v.sigLow){ return 'Below the ' + exp + ' expected — likely ' + range + small; }
+  if(!v.enough){ return 'Only ' + v.decided + ' decided rounds — too few to judge'; }
+  return 'Normal variation — likely ' + range + ' vs ' + exp + ' expected';
+}
+// explanation shown on hover over the statistical captions
+function statTooltip(kind){
+  if(kind === 'margin'){
+    return 'The margin is the net result divided by the total amount staked. The range is a 95% confidence range: if the same session were repeated many times, the true margin would fall inside it in 95% of cases. If the whole range stays above 0%, the player was ahead of the house more often than chance allows.';
+  }
+  return 'The range is a 95% confidence range for the player\'s true win rate: if the same session were repeated many times, the true rate would fall inside it in 95% of cases. If the expected rate for the game sits inside the range, the result cannot be told apart from chance.';
 }
 
 // ---- session margin vs break-even -------------------------------------------
@@ -367,12 +375,13 @@ function marginVerdict(rounds, totalNet, totalBet){
 }
 function marginNoteText(v){
   if(!v || v.n < 2){ return ''; }
-  const ci = '95% CI ' + v.ciPct[0].toFixed(1) + '–' + v.ciPct[1].toFixed(1) + '%';
-  const small = v.enough ? '' : ' (n=' + v.n + ', small sample)';
-  if(v.sigHigh){ return 'significantly above break-even · ' + ci + small; }
-  if(v.sigLow){ return 'below break-even · ' + ci + small; }
-  if(!v.enough){ return v.n + ' rounds — too few to judge (' + MARGIN_SAMPLE_MIN + ' needed)'; }
-  return 'within expected range · ' + ci;
+  const range = (v.ciPct[0] >= 0 ? '+' : '') + v.ciPct[0].toFixed(0) + '% to ' +
+                (v.ciPct[1] >= 0 ? '+' : '') + v.ciPct[1].toFixed(0) + '%';
+  const small = v.enough ? '' : ' · only ' + v.n + ' rounds';
+  if(v.sigHigh){ return 'Too good to be chance — margin likely ' + range + small; }
+  if(v.sigLow){ return 'Below break-even — margin likely ' + range + small; }
+  if(!v.enough){ return 'Only ' + v.n + ' rounds — too few to judge'; }
+  return 'Normal range — margin likely ' + range;
 }
 
 setTimeout(function(){
@@ -656,7 +665,7 @@ Trigger();
     .toggleClass('dot-pos', Margin >= 0 && !mHigh)
     .toggleClass('dot-minus', Margin < 0)
     .toggleClass('dot-neg', mHigh);
-  $('.margin-note').text(marginNoteText(mVerdict)).toggleClass('is-sig', mHigh);
+  $('.margin-note').text(marginNoteText(mVerdict)).toggleClass('is-sig', mHigh).attr('title', statTooltip('margin'));
 
 
 
@@ -1354,7 +1363,7 @@ let winCrit = winVerdict.sigHigh;
 $('.WinProcent').toggleClass('neg-val', winCrit);
 $('.WinProcent-bar').toggleClass('bar-neg', winCrit);
 $('.WinProcent-bar').css('width', Math.min(100, WinProcent).toFixed(2) + "%");
-$('.win-note').text(winNoteText(winVerdict)).toggleClass('is-sig', winCrit);
+$('.win-note').text(winNoteText(winVerdict)).toggleClass('is-sig', winCrit).attr('title', statTooltip('win'));
 
 
 
@@ -1627,33 +1636,35 @@ function generateFindings(){
   // cannot be explained by chance (95% Wilson interval). Small samples are noise.
   if(decided >= 10){
     let expTxt = (winVerdictF.expected * 100).toFixed(1) + '%';
-    let ciTxt = '95% CI ' + (winVerdictF.ci[0] * 100).toFixed(1) + '–' + (winVerdictF.ci[1] * 100).toFixed(1) + '%';
+    let rangeTxt = (winVerdictF.ci[0] * 100).toFixed(0) + '–' + (winVerdictF.ci[1] * 100).toFixed(0) + '%';
     let small = winVerdictF.enough ? '' : ' (only ' + decided + ' decided rounds)';
     if(winVerdictF.sigHigh){
       add('danger', '<b>Abnormally high win rate:</b> ' + effWin.toFixed(1) + '% (' + WinRoundCnt +
-          ' wins in ' + decided + ' decided rounds) is above the ~' + expTxt + ' expected for this game (' + ciTxt + ')' + small + '.');
+          ' wins in ' + decided + ' decided rounds) vs ~' + expTxt + ' expected for this game — the true rate is likely ' +
+          rangeTxt + ', so this is unlikely to be chance' + small + '.');
     }else if(winVerdictF.sigLow){
       add('success', 'Win rate ' + effWin.toFixed(1) + '% (' + WinRoundCnt + ' of ' + decided +
-          ' decided) is below the ~' + expTxt + ' expected for this game (' + ciTxt + ') — no advantage play signs.');
+          ' decided) is below the ~' + expTxt + ' expected for this game (likely ' + rangeTxt + ') — no advantage play signs.');
     }else if(!winVerdictF.enough){
       add('success', 'Win rate ' + effWin.toFixed(1) + '% (' + WinRoundCnt + ' of ' + decided +
           ' decided) — too few rounds to judge (' + WIN_SAMPLE_MIN + ' needed), expected ~' + expTxt + '.');
     }else{
       add('success', 'Win rate ' + effWin.toFixed(1) + '% (' + WinRoundCnt + ' of ' + decided +
-          ' decided) is within normal variation for ~' + expTxt + ' expected (' + ciTxt + ').');
+          ' decided) is within normal variation (likely ' + rangeTxt + ' vs ~' + expTxt + ' expected).');
     }
   }
 
   // ---- 1b. Session margin vs break-even (statistical) ----
   if(marginVerdictF.n >= 10){
-    let mCiTxt = '95% CI ' + marginVerdictF.ciPct[0].toFixed(1) + '–' + marginVerdictF.ciPct[1].toFixed(1) + '%';
+    let mRange = (marginVerdictF.ciPct[0] >= 0 ? '+' : '') + marginVerdictF.ciPct[0].toFixed(0) + '% to ' +
+                 (marginVerdictF.ciPct[1] >= 0 ? '+' : '') + marginVerdictF.ciPct[1].toFixed(0) + '%';
     if(marginVerdictF.sigHigh){
       add(winVerdictF.sigHigh ? 'info' : 'danger',
-          '<b>Session margin ' + (marginVerdictF.marginPct >= 0 ? '+' : '') + marginVerdictF.marginPct.toFixed(1) + '%</b> is statistically above break-even (' +
-          mCiTxt + ')' + (marginVerdictF.enough ? '' : ', only ' + marginVerdictF.n + ' rounds') +
-          ' — the player is ahead of the house in this session.');
+          '<b>Session margin ' + (marginVerdictF.marginPct >= 0 ? '+' : '') + marginVerdictF.marginPct.toFixed(1) + '%</b> — ' +
+          'the true margin is likely ' + mRange + ', so the player was ahead of the house more often than chance allows' +
+          (marginVerdictF.enough ? '' : ', only ' + marginVerdictF.n + ' rounds') + '.');
     }else if(marginVerdictF.sigLow){
-      add('success', 'Session margin ' + marginVerdictF.marginPct.toFixed(1) + '% is below break-even (' + mCiTxt + ').');
+      add('success', 'Session margin ' + marginVerdictF.marginPct.toFixed(1) + '% is below break-even (likely ' + mRange + ').');
     }
   }
 
