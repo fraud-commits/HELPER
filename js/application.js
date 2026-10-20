@@ -103,6 +103,11 @@ const CLIENT_BREAK_RULES = {
 let ClientLabel = '';       // detected client label (from the Client field / fraud sheet name)
 // key of the client name stored in the extension Settings namespace (per workbook)
 const CLIENT_LABEL_KEY = 'helperClientLabel';
+// normal interval between rounds for THIS client, in seconds (0 = use the
+// per-game default table). Every client runs its tables at its own speed, so the
+// bot "plays very fast" check needs the client's own pace as the baseline.
+const CLIENT_PACE_KEY = 'helperClientPace';
+let ClientPaceSec = 0;
 
 // the "Client" input: Enter / leaving the field saves the label into the workbook
 $(document).off('change.clientlabel', '#client-label-input').on('change.clientlabel', '#client-label-input', function(){
@@ -111,6 +116,14 @@ $(document).off('change.clientlabel', '#client-label-input').on('change.clientla
 $(document).off('keydown.clientlabel', '#client-label-input').on('keydown.clientlabel', '#client-label-input', function(e){
   if(e.keyCode === 13){ $(this).blur(); }                       // Enter = save (change fires on blur)
   else if(e.keyCode === 27){ $(this).val(ClientLabel).blur(); } // Esc = undo edits
+});
+// the "pace" input: the client's normal round interval, in seconds
+$(document).off('change.clientpace', '#client-pace-input').on('change.clientpace', '#client-pace-input', function(){
+  saveClientPace(String($(this).val() || '').trim());
+});
+$(document).off('keydown.clientpace', '#client-pace-input').on('keydown.clientpace', '#client-pace-input', function(e){
+  if(e.keyCode === 13){ $(this).blur(); }
+  else if(e.keyCode === 27){ $(this).val(ClientPaceSec || '').blur(); }
 });
 
 function labelMatchesKey(label, key){
@@ -194,7 +207,19 @@ function applyClientLabel(){
       ? 'client label sources: ' + src.join(' · ')
       : 'no client label found — type the client name and press Enter');
   }
-  console.log('HELPER client label:', ClientLabel || '(none)', src, saved ? '(saved)' : '(auto)');
+  // client's own pace (seconds between rounds) — baseline for the bot speed check
+  let pace = 0;
+  try{ pace = parseFloat(tableau.extensions.settings.get(CLIENT_PACE_KEY) || 0) || 0; }catch(e){}
+  ClientPaceSec = (pace > 0 && isFinite(pace)) ? Math.round(pace) : 0;
+  let $pace = $('#client-pace-input');
+  if($pace.length){
+    if(document.activeElement !== $pace[0]){ $pace.val(ClientPaceSec || ''); }
+    $pace.attr('title', ClientPaceSec
+      ? 'normal round interval for this client: ~' + ClientPaceSec + ' s (used by the bot speed check)'
+      : 'normal round interval for this client in seconds (e.g. 32 baccarat, 40 roulette) — leave empty to use the per-game default');
+  }
+  console.log('HELPER client label:', ClientLabel || '(none)', src, saved ? '(saved)' : '(auto)',
+              'pace:', ClientPaceSec ? ClientPaceSec + 's' : '(per-game default)');
 }
 function saveClientLabel(value){
   // persists into the workbook (Settings namespace) — save the .twb once afterwards
@@ -204,6 +229,18 @@ function saveClientLabel(value){
     tableau.extensions.settings.saveAsync().then(function(){
       applyClientLabel();
       drawChartJS();   // re-run break analysis with the new label
+    }, function(e){ console.log('settings save failed', e); });
+  }catch(e){ console.log('settings save failed', e); }
+}
+function saveClientPace(value){
+  // the client's normal pace in seconds; empty = per-game default table
+  const num = parseFloat(value);
+  const clean = (isFinite(num) && num > 0) ? String(Math.round(num)) : '';
+  try{
+    tableau.extensions.settings.set(CLIENT_PACE_KEY, clean);
+    tableau.extensions.settings.saveAsync().then(function(){
+      applyClientLabel();
+      drawChartJS();   // re-run the bot check with the new baseline
     }, function(e){ console.log('settings save failed', e); });
   }catch(e){ console.log('settings save failed', e); }
 }
@@ -1813,21 +1850,28 @@ function analyzeBot(){
   let sig = 0;
   let notes = [];
   // game-aware baselines: baccarat has 2 sides, so "few repeating bets" is normal
-  // there; and a fast table is fast for everyone, not only for bots
+  // there; and a fast table is fast for everyone, not only for bots.
+  // The client's own pace (Pace field) wins over the per-game default table —
+  // every client runs its tables at its own speed.
   let botGame = dominantGameType(RoundArry);
   let lowPosGame = isLowPositionGame(botGame);
-  let gameTypicalMin = typicalRoundMinForGame(botGame);
+  let useClientPace = ClientPaceSec > 0;
+  let gameTypicalMin = useClientPace ? (ClientPaceSec / 60) : typicalRoundMinForGame(botGame);
+  let paceSource = useClientPace ? 'this client' : botGame;
 
   if(rounds > 500){ sig++; notes.push('very long session: ' + rounds + ' rounds (> 500) — bots play long, flat sessions without tiring'); }
   if(entropy < 2.5 && distinctTypes > 0 && !lowPosGame){ sig++; notes.push('few repeating bets: only ' + distinctTypes + ' bet type(s) used (' + entropy.toFixed(2) + ' bits) — bots stick to the same pattern'); }
   // scripted play keeps the stake almost fixed; a human spreads it out
   if(betVar < 1.5 && avgBet > 0){ sig++; notes.push('stake almost never changes: max bet is only ' + (betVar > 0 ? betVar.toFixed(1) : '0') + '× the average'); }
-  // very fast, steady cadence — but only if it is fast for THAT game
+  // very fast, steady cadence — but only if it is fast for THAT game / client
   // (baccarat tables run ~32 s, roulette ~40 s; 25 s on baccarat is normal)
-  if(cadence > 0 && cadence < 0.5 && cadence < gameTypicalMin * 0.7){
+  let tooFast = useClientPace
+    ? (cadence > 0 && cadence < gameTypicalMin * 0.7)                       // client pace replaces the absolute gate
+    : (cadence > 0 && cadence < 0.5 && cadence < gameTypicalMin * 0.7);
+  if(tooFast){
     sig++;
     notes.push('plays very fast: median ' + (cadence * 60).toFixed(0) + ' s between rounds (normal for ' +
-               botGame + ' is ~' + (gameTypicalMin * 60).toFixed(0) + ' s) — bots do not hesitate');
+               paceSource + ' is ~' + (gameTypicalMin * 60).toFixed(0) + ' s) — bots do not hesitate');
   }
   if(rounds > 300 && breakCnt <= 1){ sig++; notes.push('at most one break in ' + rounds + ' rounds — a human usually pauses'); }
 

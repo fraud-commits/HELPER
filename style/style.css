@@ -915,6 +915,18 @@ body.dark .badge-long-c{ background-color: #B03A44 !important; }
   color: var(--muted);
   font-weight: 400;
 }
+.client-input-pace{
+  width: 76px;
+}
+.client-input-pace::-webkit-outer-spin-button,
+.client-input-pace::-webkit-inner-spin-button{
+  -webkit-appearance: none;
+  margin: 0;
+}
+.client-input-pace[type=number]{
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
 .client-input:focus{
   border-color: var(--brand);
   box-shadow: none;
