@@ -1431,6 +1431,21 @@ function generateFindings(){
   let avgBet   = rounds  > 0 ? TotalBet / rounds : 0;
   let maxRound = null;
 
+  // ---- roulette layout coverage (computed early: it explains a high win rate) ----
+  // a round that covers most of the wheel wins almost regardless of the ball, so
+  // a high win rate of such a player is a consequence of coverage, not of an edge
+  let coverStats = {total:0, max:0, maxRound:null, maxPockets:37, heavy:0, heavyMin:28, redLine:0};
+  for(let i = 0; i < rounds; i++){
+    const r = RoundArry[i];
+    if(!r || !/roulette/i.test(r.GameType || '')){ continue; }
+    const pockets = roulettePockets(r.GameType);
+    const cov = rouletteCoveredCount(r.Positions);
+    coverStats.total++;
+    if(cov > coverStats.max){ coverStats.max = cov; coverStats.maxRound = r; coverStats.maxPockets = pockets; }
+    if(cov >= coverStats.heavyMin){ coverStats.heavy++; }
+    if(cov >= rouletteRedLine(r.GameType)){ coverStats.redLine++; }
+  }
+
   for(let i = 0; i < rounds; i++){
     if(maxRound === null || RoundArry[i].TotalRoundBet > maxRound.TotalRoundBet){
       maxRound = RoundArry[i];
@@ -1448,8 +1463,16 @@ function generateFindings(){
   // ---- 1. Win rate vs theoretical expectation ----
   if(decided >= 20){
     if(effWin >= 55){
-      add('danger', '<b>Abnormally high win rate:</b> ' + effWin.toFixed(1) + '% (' + WinRoundCnt +
-          ' wins in ' + decided + ' decided rounds), expected is ~48-49%.');
+      if(coverStats.heavy >= 2){
+        // the win rate is mechanical: the player covers most of the wheel
+        add('warning', '<b>High win rate explained by systematic coverage:</b> ' + coverStats.heavy + ' of ' + rounds +
+            ' round(s) cover ' + coverStats.heavyMin + '+ of ' + coverStats.maxPockets +
+            ' pockets — the outcome is near-guaranteed by construction, not an advantage-play signal (win rate ' +
+            effWin.toFixed(1) + '%, expected ~48-49%).');
+      }else{
+        add('danger', '<b>Abnormally high win rate:</b> ' + effWin.toFixed(1) + '% (' + WinRoundCnt +
+            ' wins in ' + decided + ' decided rounds), expected is ~48-49%.');
+      }
     }else if(effWin <= 42){
       add('success', 'Win rate ' + effWin.toFixed(1) + '% is below expectation — no advantage play signs.');
     }else{
@@ -1631,23 +1654,12 @@ function generateFindings(){
 
   // ---- 9. Roulette layout coverage (low-risk / bonus-abuse play) ----
   // counts distinct pockets covered by one round's positions
-  (function(){
-    let maxCover = 0, maxCoverRound = null, maxPockets = 37, coverRounds = 0;
-    for(let i = 0; i < rounds; i++){
-      let r = RoundArry[i];
-      if(!r || !/roulette/i.test(r.GameType || '')){ continue; }
-      let pockets = roulettePockets(r.GameType);
-      let cov = rouletteCoveredCount(r.Positions);
-      if(cov > maxCover){ maxCover = cov; maxCoverRound = r; maxPockets = pockets; }
-      if(cov >= rouletteRedLine(r.GameType)){ coverRounds++; }
-    }
-    if(coverRounds > 0){
-      add(coverRounds >= 3 ? 'danger' : 'warning',
-          '<b>Low-risk roulette coverage:</b> ' + coverRounds + ' round(s) cover ' + rouletteRedLine(maxCoverRound.GameType) +
-          '+ of ' + maxPockets + ' pockets (max ' + maxCover + '/' + maxPockets + ' in round ' + maxCoverRound.RoundId +
-          ') — near-guaranteed outcome, typical bonus-abuse pattern.');
-    }
-  })();
+  if(coverStats.redLine > 0){
+    add(coverStats.redLine >= 3 ? 'danger' : 'warning',
+        '<b>Low-risk roulette coverage:</b> ' + coverStats.redLine + ' round(s) cover ' + (coverStats.maxPockets - 3) +
+        '+ of ' + coverStats.maxPockets + ' pockets (max ' + coverStats.max + '/' + coverStats.maxPockets + ' in round ' +
+        coverStats.maxRound.RoundId + ') — near-guaranteed outcome, typical bonus-abuse pattern.');
+  }
 
   // ---- Bot / automation verdict (set by analyzeBot, runs before) ----
   if(typeof BotFinding !== 'undefined' && BotFinding){ add(BotFinding.level, BotFinding.text); }
@@ -1817,10 +1829,18 @@ function computeWinnerAnswers(){
   let negPct   = p(negativ);
   let upPct2   = p(up);
 
+  // erratic = same rule as the Key findings bullet: both systems present, no
+  // dominance (so the card label and the finding never contradict each other)
+  let decidedD = (typeof WinRoundCnt !== 'undefined' && (WinRoundCnt + LossRoundCnt) > 0) ? (WinRoundCnt + LossRoundCnt) : rounds;
+  let negPctD = decidedD > 0 ? negativ / decidedD * 100 : 0;
+  let upPctD  = decidedD > 0 ? up / decidedD * 100 : 0;
+  let erratic = rounds >= 15 && negPctD >= 25 && upPctD >= 25 && Math.abs(negPctD - upPctD) < 25;
+
   let prog;
   if(rounds <= 1){ prog = 'Other one'; }
   else if(martingeil >= 1 && negPct >= 50){ prog = 'Martingale betting system'; }
   else if(samePct >= 70){ prog = 'Flat wagers'; }
+  else if(erratic){ prog = 'Chaotic wagers, regardless to previous game outcome'; }
   else if(negPct >= 70){ prog = 'Negative progression'; }
   else if(negPct >= 50){ prog = 'Mainly negative betting progression'; }
   else if(upPct2 >= 85){ prog = 'Positive progression'; }
