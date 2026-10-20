@@ -208,6 +208,83 @@ function saveClientLabel(value){
   }catch(e){ console.log('settings save failed', e); }
 }
 
+// ---- win rate vs expectation ------------------------------------------------
+// The win ratio is judged against the game the player actually plays, and only a
+// deviation that CANNOT be explained by chance becomes a red flag.
+const EXPECTED_WIN_RATE = {
+  roulette: 0.486,      // single zero: 36/37
+  american: 0.473,      // double zero: 36/38
+  blackjack: 0.495,    // basic strategy, pushes excluded
+  default: 0.500        // even-money games (teenpatti, baccarat, sic bo, ...)
+};
+const WIN_SAMPLE_MIN = 30;   // decided rounds needed before the rate is judged
+function expectedWinRate(gameType){
+  const g = String(gameType || '').toLowerCase();
+  if(!g){ return EXPECTED_WIN_RATE.default; }
+  if(/blackjack/.test(g)){ return EXPECTED_WIN_RATE.blackjack; }
+  if(/roulette|rouge/.test(g)){
+    return /american|doubler|double\s?zero/.test(g) ? EXPECTED_WIN_RATE.american : EXPECTED_WIN_RATE.roulette;
+  }
+  return EXPECTED_WIN_RATE.default;
+}
+// Wilson score interval (95% by default) for a share: always inside 0..100% and
+// reliable on small samples, unlike the naive p ± 1.96*sqrt(p(1-p)/n).
+function wilsonCI(k, n, z){
+  z = z || 1.96;
+  if(!n || n <= 0){ return [0, 0]; }
+  const p = k / n, z2 = z * z;
+  const denom = 1 + z2 / n;
+  const center = (p + z2 / (2 * n)) / denom;
+  const half = (z / denom) * Math.sqrt(p * (1 - p) / n + z2 / (4 * n * n));
+  return [Math.max(0, center - half), Math.min(1, center + half)];
+}
+// Verdict for the rounds in scope: expected rate (weighted by the games played),
+// 95% interval and whether the deviation is statistically significant.
+function winRateVerdict(rounds, wins, losses){
+  const decided = wins + losses;
+  const perGame = {};
+  for(let i = 0; i < rounds.length; i++){
+    const r = rounds[i];
+    const net = r.TotalRoundNet;
+    if(net === 0 || net === undefined || net === null){ continue; }
+    const g = r.GameType || 'Unknown';
+    if(!perGame[g]){ perGame[g] = {wins: 0, decided: 0, exp: expectedWinRate(g)}; }
+    perGame[g].decided += 1;
+    if(net > 0){ perGame[g].wins += 1; }
+  }
+  let expSum = 0, decSum = 0;
+  const games = Object.keys(perGame);
+  for(let i = 0; i < games.length; i++){
+    expSum += perGame[games[i]].exp * perGame[games[i]].decided;
+    decSum += perGame[games[i]].decided;
+  }
+  const expected = decSum > 0 ? expSum / decSum : EXPECTED_WIN_RATE.default;
+  const ci = wilsonCI(wins, decided, 1.96);
+  const enough = decided >= WIN_SAMPLE_MIN;
+  return {
+    decided: decided,
+    winPct: decided > 0 ? wins / decided * 100 : 0,
+    expected: expected,
+    ci: ci,
+    enough: enough,
+    // the whole interval lies above / below the expected rate -> not chance
+    sigHigh: enough && ci[0] > expected,
+    sigLow: enough && ci[1] < expected,
+    games: games,
+    perGame: perGame
+  };
+}
+// short caption under the Win ratio value (why it is / is not flagged)
+function winNoteText(v){
+  if(!v || v.decided <= 0){ return ''; }
+  const exp = (v.expected * 100).toFixed(1) + '% expected';
+  const ci = '95% CI ' + (v.ci[0] * 100).toFixed(1) + '–' + (v.ci[1] * 100).toFixed(1) + '%';
+  if(!v.enough){ return v.decided + ' decided rounds — too few to judge (' + WIN_SAMPLE_MIN + ' needed)'; }
+  if(v.sigHigh){ return 'significantly above ' + exp + ' · ' + ci; }
+  if(v.sigLow){ return 'significantly below ' + exp + ' · ' + ci; }
+  return 'within normal variation · ' + ci;
+}
+
 setTimeout(function(){
   if(!booted){
     showExtError('Tableau did not return data in 15s. Check: 1) the fraud sheet is on this dashboard, 2) Player Id / Timestamp parameters are set, 3) the extension was re-added from the current .trex — then Reload.');
@@ -1176,13 +1253,15 @@ let decidedRounds = WinRoundCnt + LossRoundCnt;
 // win ratio excludes ties (decided rounds only) — same base as Key findings
 let WinProcent = decidedRounds > 0 ? WinRoundCnt / decidedRounds * 100 : 0;
 $('.WinProcent').text(decidedRounds > 0 ? WinProcent.toFixed(2) + "%" : '—');
-// red when abnormally high: >=55%, min 10 decided —
-// same bar as the Key findings red flag, which uses ~48-49% as expected
-let effWinPct = WinProcent;
-let winCrit = decidedRounds >= 10 && effWinPct >= 55;
+// red only when the deviation from the expected rate of the game(s) played is
+// statistically significant (95% Wilson interval): a high rate on a small
+// sample is noise, not an advantage
+let winVerdict = winRateVerdict(RoundArry, WinRoundCnt, LossRoundCnt);
+let winCrit = winVerdict.sigHigh;
 $('.WinProcent').toggleClass('neg-val', winCrit);
 $('.WinProcent-bar').toggleClass('bar-neg', winCrit);
 $('.WinProcent-bar').css('width', Math.min(100, WinProcent).toFixed(2) + "%");
+$('.win-note').text(winNoteText(winVerdict)).toggleClass('is-sig', winCrit);
 
 
 
@@ -1429,6 +1508,8 @@ function generateFindings(){
   let rounds   = RoundArry.length;
   let decided  = WinRoundCnt + LossRoundCnt; // rounds without ties
   let effWin   = decided > 0 ? WinRoundCnt / decided * 100 : 0;
+  // expected rate for the game(s) played + 95% Wilson interval (stat. significance)
+  let winVerdictF = winRateVerdict(RoundArry, WinRoundCnt, LossRoundCnt);
   let avgBet   = rounds  > 0 ? TotalBet / rounds : 0;
   let maxRound = null;
 
@@ -1447,20 +1528,29 @@ function generateFindings(){
   function add(level, text){ findings.push({level: level, text: text}); }
 
   // ---- 1. Win rate vs theoretical expectation ----
+  // A red flag only when the deviation from the expected rate of the game played
+  // cannot be explained by chance (95% Wilson interval). Small samples are noise.
   if(decided >= 20){
-    if(effWin >= 55){
+    let expTxt = (winVerdictF.expected * 100).toFixed(1) + '%';
+    let ciTxt = '95% CI ' + (winVerdictF.ci[0] * 100).toFixed(1) + '–' + (winVerdictF.ci[1] * 100).toFixed(1) + '%';
+    if(!winVerdictF.enough){
+      add('success', 'Win rate ' + effWin.toFixed(1) + '% (' + WinRoundCnt + ' of ' + decided +
+          ' decided) — too few rounds to judge (' + WIN_SAMPLE_MIN + ' needed), expected ~' + expTxt + '.');
+    }else if(winVerdictF.sigHigh){
       add('danger', '<b>Abnormally high win rate:</b> ' + effWin.toFixed(1) + '% (' + WinRoundCnt +
-          ' wins in ' + decided + ' decided rounds), expected is ~48-49%.');
-    }else if(effWin <= 42){
-      add('success', 'Win rate ' + effWin.toFixed(1) + '% is below expectation — no advantage play signs.');
+          ' wins in ' + decided + ' decided rounds) is above the ~' + expTxt + ' expected for this game (' + ciTxt + ').');
+    }else if(winVerdictF.sigLow){
+      add('success', 'Win rate ' + effWin.toFixed(1) + '% (' + WinRoundCnt + ' of ' + decided +
+          ' decided) is below the ~' + expTxt + ' expected for this game (' + ciTxt + ') — no advantage play signs.');
     }else{
-      add('success', 'Win rate ' + effWin.toFixed(1) + '% is within the expected range.');
+      add('success', 'Win rate ' + effWin.toFixed(1) + '% (' + WinRoundCnt + ' of ' + decided +
+          ' decided) is within normal variation for ~' + expTxt + ' expected (' + ciTxt + ').');
     }
   }
 
   // ---- 2. Session result: profit alone is routine — flag it only from €50k ----
   if(TotalNet >= 50000){
-    let lvl = (effWin >= 55 && decided >= 20) ? 'danger' : 'warning';
+    let lvl = winVerdictF.sigHigh ? 'danger' : 'warning';
     add(lvl, '<b>Player finished in profit:</b> +' + eur(TotalNet) + ' (margin +' + Margin.toFixed(2) + '%).');
   }
 
@@ -1582,7 +1672,7 @@ function generateFindings(){
       if(DealerArry[i].DealerName !== topNet.DealerName && DealerArry[i].TotalNet < 0){ othersLosing++; }
     }
     if(topNet.TotalNet > 0 && othersLosing >= DealerArry.length - 1 && DealerArry.length >= 3){
-      add(effWin >= 55 ? 'danger' : 'warning',
+      add(winVerdictF.sigHigh ? 'danger' : 'warning',
           '<b>Dealer pattern:</b> player profits only with dealer ' + topNet.DealerName + ' (+' + eur(topNet.TotalNet) +
           '), losing with all other dealers — prioritize video review (possible predictability or collusion).');
     }
