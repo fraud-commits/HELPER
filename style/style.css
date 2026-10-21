@@ -346,7 +346,7 @@ margin: 1px;
     line-height: 1.5;
     letter-spacing: 0;
     text-align: left;
-    max-width: 320px;
+    max-width: min(320px, calc(100vw - 24px));
     z-index: 70;
     border: 1px solid var(--line);
     box-shadow: 0 4px 14px var(--brand-shadow);
@@ -357,7 +357,26 @@ margin: 1px;
   }
 
   .gap-tip-ids{
-    white-space: nowrap;
+    white-space: normal;
+    max-width: 100%;
+  }
+
+  /* two ids (from -> to): a pair of 36-char UUIDs does not fit on one line.
+     Stacked, they stay inside the tooltip instead of running out of the box
+     and off the dashboard. */
+  .gap-tip-ids.two{
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 1px;
+  }
+
+  .gap-tip-ids.two .gap-arrow{
+    align-self: flex-start;
+    transform: rotate(90deg);
+    transform-origin: center;
+    padding: 0;
+    line-height: 1;
   }
 
   .gap-arrow{
@@ -377,6 +396,9 @@ margin: 1px;
     user-select: text;
     text-decoration: underline;
     text-underline-offset: 2px;
+    /* a long id breaks instead of pushing the tooltip out of the window */
+    overflow-wrap: anywhere;
+    max-width: 100%;
   }
 
   .gap-copy:hover{

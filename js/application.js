@@ -850,10 +850,12 @@ function gapTipShow(el){
     return '<span class="gap-copy" data-round="' + v.replace(/"/g, '&quot;') + '" title="select with the mouse, right-click → Copy">' + v + '</span>';
   }
   let ids = '';
+  let twoIds = false;
   if(from){ ids += idText(from); }
-  if(to){ ids += ' <span class="gap-arrow">→</span> ' + idText(to); }
+  if(to){ ids += ' <span class="gap-arrow">→</span> ' + idText(to); twoIds = true; }
+  // two ids -> stacked block: a pair of long UUIDs does not fit on one line
   tip.html(
-    '<div class="gap-tip-ids">' + ids + '</div>' +
+    '<div class="gap-tip-ids' + (twoIds ? ' two' : '') + '">' + ids + '</div>' +
     '<div class="gap-tip-meta">' + meta + '</div>'
   );
   tip.addClass('show');
