@@ -108,6 +108,32 @@ const CLIENT_LABEL_KEY = 'helperClientLabel';
 // bot "plays very fast" check needs the client's own pace as the baseline.
 const CLIENT_PACE_KEY = 'helperClientPace';
 let ClientPaceSec = 0;
+// measured normal round interval of the clients we know, in seconds:
+// mac88 and RG run a round about every 1.5 min. The per-game table below
+// (measured on a 38k-round sample of other clients) is much faster, so
+// without this the bot check would flag normal play as "plays very fast".
+const CLIENT_PACE_SEC = {
+  'mac88': 90, 'royalgaming': 90, 'rg': 90
+};
+// Median gap between rounds on a table, measured on the sample file (38k rounds).
+// Used as a fallback when the player's own cadence cannot be estimated.
+const TYPICAL_ROUND_MIN = {
+  'Andar Bahar': 1.42, 'BacBo': 0.68, 'Baccarat': 0.53, 'Blackjack': 0.60,
+  'Casino Holdem': 0.93, 'Dragon Tiger': 0.47, 'Dynamite Roulette': 0.72,
+  'HiLo': 0.50, 'Land of Ra': 0.97, 'Lucky Wheelionaire': 1.00,
+  'Multiplier Auto Roulette': 0.70, 'Roulette': 0.68, 'Roulette Rouge': 0.77,
+  'Scalable Blackjack': 1.00, 'Sic Bo': 0.58, 'Teen Patti': 0.90
+};
+const DEFAULT_ROUND_MIN = 0.67; // 40 s, overall median in the sample
+// median gap (minutes) measured for a game type — the "normal pace" baseline
+function typicalRoundMinForGame(gameType){
+  const g = String(gameType || '').toLowerCase().replace(/\s+/g, '');
+  if(!g){ return DEFAULT_ROUND_MIN; }
+  for(let k in TYPICAL_ROUND_MIN){
+    if(g.indexOf(String(k).toLowerCase().replace(/\s+/g, '')) >= 0){ return TYPICAL_ROUND_MIN[k]; }
+  }
+  return DEFAULT_ROUND_MIN;
+}
 
 // the "Client" input: Enter / leaving the field saves the label into the workbook
 $(document).off('change.clientlabel', '#client-label-input').on('change.clientlabel', '#client-label-input', function(){
@@ -145,6 +171,39 @@ function currentBreakRulesKey(){
 function currentBreakRules(){
   const key = currentBreakRulesKey();
   return key ? CLIENT_BREAK_RULES[key] : BREAK_RULES;
+}
+// built-in normal round interval of the detected client, in seconds (0 = none).
+// mac88 / RG run a round about every 1.5 min - the per-game table is measured
+// on other clients and is much faster there.
+function currentClientPaceDefault(){
+  const keys = Object.keys(CLIENT_PACE_SEC);
+  for(let i = 0; i < keys.length; i++){
+    if(ClientLabel && labelMatchesKey(ClientLabel, keys[i])){ return CLIENT_PACE_SEC[keys[i]]; }
+  }
+  return 0;
+}
+// the pace actually used as the baseline: the value typed by the analyst wins,
+// then the client's built-in default, then (0) the per-game default table.
+// The default is derived from the CURRENT label on every call - it must never
+// go stale when the client name changes.
+function effectivePaceSec(){
+  if(ClientPaceSec > 0){ return ClientPaceSec; }
+  return currentClientPaceDefault();
+}
+// baseline of the bot "plays very fast" check: the client's own pace wins over
+// the per-game default table (every client runs its tables at its own speed).
+// Pure function of the current label/pace — testable without Tableau.
+function botPaceBaseline(botGame){
+  let paceSec = effectivePaceSec();
+  if(paceSec > 0){
+    return {
+      useClientPace: true,
+      min: paceSec / 60,
+      // the note names the client when the baseline is the built-in default
+      source: ClientPaceSec > 0 ? 'this client' : (ClientLabel || 'this client')
+    };
+  }
+  return { useClientPace: false, min: typicalRoundMinForGame(botGame), source: botGame };
 }
 // The fraud sheet may carry the client name in ITS OWN NAME (worksheet title text is
 // NOT exposed by the Extensions API — only the sheet name is), e.g. rename the sheet
@@ -211,15 +270,23 @@ function applyClientLabel(){
   let pace = 0;
   try{ pace = parseFloat(tableau.extensions.settings.get(CLIENT_PACE_KEY) || 0) || 0; }catch(e){}
   ClientPaceSec = (pace > 0 && isFinite(pace)) ? Math.round(pace) : 0;
+  // built-in default of this client (mac88 / RG: a round takes ~1.5 min)
+  let dflt = currentClientPaceDefault();
   let $pace = $('#client-pace-input');
   if($pace.length){
     if(document.activeElement !== $pace[0]){ $pace.val(ClientPaceSec || ''); }
+    // the built-in default is shown as a placeholder — the field itself stays empty
+    // so the analyst can tell "not set" from "set to X"
+    $pace.attr('placeholder', (ClientPaceSec ? '' : (dflt ? (dflt + ' s') : 'pace s')));
     $pace.attr('title', ClientPaceSec
-      ? 'normal round interval for this client: ~' + ClientPaceSec + ' s (used by the bot speed check)'
-      : 'normal round interval for this client in seconds (e.g. 32 baccarat, 40 roulette) — leave empty to use the per-game default');
+      ? 'normal round interval for this client: ~' + ClientPaceSec + ' s (typed by the analyst — used by the bot speed check)'
+      : (dflt
+          ? 'normal round interval for ' + (ClientLabel || 'this client') + ': ~' + dflt + ' s (built-in default, used by the bot speed check) — type a value to override'
+          : 'normal round interval for this client in seconds (e.g. 32 baccarat, 40 roulette) — leave empty to use the per-game default'));
   }
   console.log('HELPER client label:', ClientLabel || '(none)', src, saved ? '(saved)' : '(auto)',
-              'pace:', ClientPaceSec ? ClientPaceSec + 's' : '(per-game default)');
+              'pace:', ClientPaceSec ? ClientPaceSec + 's (typed)'
+                             : (dflt ? dflt + 's (client default)' : '(per-game default)'));
 }
 function saveClientLabel(value){
   // persists into the workbook (Settings namespace) — save the .twb once afterwards
@@ -696,24 +763,16 @@ if (element3 ) {
 console.log(BetPositionArry)
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// BREAK RULES, CLIENT_BREAK_RULES, ClientLabel, findFraudSheet() and
-// currentBreakRules() / applyClientLabel() moved to the TOP LEVEL of the file —
-// they must exist before drawChartJS() starts (analysis code inside its .then()
-// callback runs before this point in the code below).
+// BREAK RULES, CLIENT_BREAK_RULES, ClientLabel, findFraudSheet(),
+// currentBreakRules() / applyClientLabel() and the pace tables
+// (TYPICAL_ROUND_MIN / typicalRoundMinForGame) moved to the TOP LEVEL of the
+// file — they must exist before drawChartJS() starts (analysis code inside its
+// .then() callback runs before this point in the code below).
 
 let EstSkippedRounds = 0; // estimated number of game rounds missed during skips
 
 // Median gap between rounds on a table, measured on the sample file (38k rounds).
 // Used as a fallback when the player's own cadence cannot be estimated.
-const TYPICAL_ROUND_MIN = {
-  'Andar Bahar': 1.42, 'BacBo': 0.68, 'Baccarat': 0.53, 'Blackjack': 0.60,
-  'Casino Holdem': 0.93, 'Dragon Tiger': 0.47, 'Dynamite Roulette': 0.72,
-  'HiLo': 0.50, 'Land of Ra': 0.97, 'Lucky Wheelionaire': 1.00,
-  'Multiplier Auto Roulette': 0.70, 'Roulette': 0.68, 'Roulette Rouge': 0.77,
-  'Scalable Blackjack': 1.00, 'Sic Bo': 0.58, 'Teen Patti': 0.90
-};
-const DEFAULT_ROUND_MIN = 0.67; // 40 s, overall median in the sample
-
 function typicalRoundMin(roundsArr){
   // most frequent table name among the player's rounds -> its measured median gap
   let freq = {};
@@ -738,16 +797,6 @@ function dominantGameType(roundsArr){
   let best = '', bestN = 0;
   for(let k in freq){ if(freq[k] > bestN){ bestN = freq[k]; best = k; } }
   return best || 'Unknown';
-}
-
-// median gap (minutes) measured for a game type — the "normal pace" baseline
-function typicalRoundMinForGame(gameType){
-  const g = String(gameType || '').toLowerCase().replace(/\s+/g, '');
-  if(!g){ return DEFAULT_ROUND_MIN; }
-  for(let k in TYPICAL_ROUND_MIN){
-    if(g.indexOf(String(k).toLowerCase().replace(/\s+/g, '')) >= 0){ return TYPICAL_ROUND_MIN[k]; }
-  }
-  return DEFAULT_ROUND_MIN;
 }
 
 // games with only a few natural bet positions (baccarat has 2 sides): repeating
@@ -1859,13 +1908,16 @@ function analyzeBot(){
   let notes = [];
   // game-aware baselines: baccarat has 2 sides, so "few repeating bets" is normal
   // there; and a fast table is fast for everyone, not only for bots.
-  // The client's own pace (Pace field) wins over the per-game default table —
-  // every client runs its tables at its own speed.
+  // The client's own pace wins over the per-game default table — every client
+  // runs its tables at its own speed. The pace is either typed by the analyst
+  // in the "pace" field or the built-in default of the client (mac88 / RG run
+  // a round about every 1.5 min).
   let botGame = dominantGameType(RoundArry);
   let lowPosGame = isLowPositionGame(botGame);
-  let useClientPace = ClientPaceSec > 0;
-  let gameTypicalMin = useClientPace ? (ClientPaceSec / 60) : typicalRoundMinForGame(botGame);
-  let paceSource = useClientPace ? 'this client' : botGame;
+  let base = botPaceBaseline(botGame);
+  let useClientPace = base.useClientPace;
+  let gameTypicalMin = base.min;
+  let paceSource = base.source;
 
   if(rounds > 500){ sig++; notes.push('very long session: ' + rounds + ' rounds (> 500) — bots play long, flat sessions without tiring'); }
   if(entropy < 2.5 && distinctTypes > 0 && !lowPosGame){ sig++; notes.push('few repeating bets: only ' + distinctTypes + ' bet type(s) used (' + entropy.toFixed(2) + ' bits) — bots stick to the same pattern'); }
