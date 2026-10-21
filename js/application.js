@@ -57,6 +57,22 @@ function themeVar(name, fallback){
   }catch(e){ return fallback; }
 }
 
+// ---- Number format (RU style): decimal comma + space thousands ----
+// Every money/percent value in the UI goes through fmtNum, so tables, cards,
+// tooltips and findings all read the same way ("42 900,00" instead of
+// "42900.00"). Formatted by hand on purpose: toLocaleString('ru-RU') depends on
+// ICU data being present in the Tableau webview, which is not guaranteed.
+function fmtNum(v, digits){
+  let d = (digits === undefined) ? 2 : digits;
+  let n = Number(v);
+  if(!isFinite(n)){ return '—'; }
+  let neg = n < 0;
+  let parts = Math.abs(n).toFixed(d).split('.');
+  let int = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, '\u00a0'); // NBSP thousands
+  let out = int + (parts.length > 1 ? ',' + parts[1] : '');
+  return (neg ? '-' : '') + out;
+}
+
 // Watchdog: if Tableau never answers with data (blocked extension, missing
 // sheet, unset filters), say so instead of leaving eternal zeros/dashes.
 let booted = false;
@@ -566,20 +582,14 @@ Trigger();
     return (typeof v === 'number' && v < 0) ? '<span class="neg-val">' + txt + '</span>' : txt;
   }
 
-  $('.Totalbet').text("€ " + TotalBet.toLocaleString('en-US', {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2
-  }));
-  $('.Totalnet').text("€ " + TotalNet.toLocaleString('en-US', {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2
-  })).toggleClass('neg-val', TotalNet < 0);
+  $('.Totalbet').text("€ " + fmtNum(TotalBet));
+  $('.Totalnet').text("€ " + fmtNum(TotalNet)).toggleClass('neg-val', TotalNet < 0);
   // session margin bar encodes RISK, not the sign: teal in the normal band,
   // neutral grey when the player loses (casino profits — nothing to flag),
   // red only when abnormally high (>= 50%, worth attention);
   // diverging from the centre zero (±100% scale clamped, 100% = half the track)
   let mHigh = Margin >= 50;
-  $('.Margin').text(Margin.toFixed(2) + "%").toggleClass('neg-val', mHigh);
+  $('.Margin').text(fmtNum(Margin) + "%").toggleClass('neg-val', mHigh);
   let mClamped = Math.max(-100, Math.min(100, Margin));
   let mBar = $('.margin-bar')
     .toggleClass('bar-pos', Margin >= 0 && !mHigh)
@@ -823,7 +833,7 @@ function fmtGap(mins){
     let m = Math.round(mins - h * 60);
     return h + ' h ' + m + ' min';
   }
-  return mins.toFixed(1) + ' min';
+  return fmtNum(mins, 1) + ' min';
 }
 
 // ================== GAP TOOLTIP (Break pattern heat map) ==================
@@ -1292,7 +1302,7 @@ $('.tie-round-cnt').text(TieRoundCnt)
 let decidedRounds = WinRoundCnt + LossRoundCnt;
 // win ratio excludes ties (decided rounds only) — same base as Key findings
 let WinProcent = decidedRounds > 0 ? WinRoundCnt / decidedRounds * 100 : 0;
-$('.WinProcent').text(decidedRounds > 0 ? WinProcent.toFixed(2) + "%" : '—');
+$('.WinProcent').text(decidedRounds > 0 ? fmtNum(WinProcent) + "%" : '—');
 // red when abnormally high: >=55%, min 10 decided
 let effWinPct = WinProcent;
 let winCrit = decidedRounds >= 10 && effWinPct >= 55;
@@ -1334,10 +1344,10 @@ if (element ) {
     $(".DealerTop").append(`
     <tr>
       <td>` + DealerArry[i].DealerName + `</td>
-      <td>` + DealerArry[i].TotalBet.toFixed(2) + `</td>
-      <td` + negClass(DealerArry[i].TotalNet) + `>` + DealerArry[i].TotalNet.toFixed(2) + `</td>
+      <td>` + fmtNum(DealerArry[i].TotalBet) + `</td>
+      <td` + negClass(DealerArry[i].TotalNet) + `>` + fmtNum(DealerArry[i].TotalNet) + `</td>
       <td>`+ DealerArry[i].RoundCount +` </td>
-      <td` + negClass(DealerArry[i].TotalNet) + `>`+ (DealerArry[i].TotalNet.toFixed(2) /  DealerArry[i].TotalBet.toFixed(2) * 100).toFixed(2) +` % </td>
+      <td` + negClass(DealerArry[i].TotalNet) + `>`+ fmtNum(DealerArry[i].TotalBet > 0 ? DealerArry[i].TotalNet / DealerArry[i].TotalBet * 100 : 0) +` % </td>
       </tr>
       `
     )
@@ -1350,10 +1360,10 @@ if (element ) {
     $(".TableTop").append(`
     <tr>
       <td>` + TableArry[i].TableName + `</td>
-      <td>` + TableArry[i].TotalBet.toFixed(2) + `</td>
-      <td` + negClass(TableArry[i].TotalNet) + `>` + TableArry[i].TotalNet.toFixed(2) + `</td>
+      <td>` + fmtNum(TableArry[i].TotalBet) + `</td>
+      <td` + negClass(TableArry[i].TotalNet) + `>` + fmtNum(TableArry[i].TotalNet) + `</td>
       <td>`+ TableArry[i].RoundCount +` </td>
-      <td` + negClass(TableArry[i].TotalNet) + `>`+ (TableArry[i].TotalNet.toFixed(2) /  TableArry[i].TotalBet.toFixed(2) * 100).toFixed(2) +` % </td>
+      <td` + negClass(TableArry[i].TotalNet) + `>`+ fmtNum(TableArry[i].TotalBet > 0 ? TableArry[i].TotalNet / TableArry[i].TotalBet * 100 : 0) +` % </td>
       </tr>
       `
     )
@@ -1378,10 +1388,10 @@ if (element ) {
     $(".GameTypeTop").append(`
     <tr>
       <td>` + GameTypeArry[i].GameType + `</td>
-      <td>` + GameTypeArry[i].TotalBet.toFixed(2) + `</td>
-      <td` + negClass(GameTypeArry[i].TotalNet) + `>` + GameTypeArry[i].TotalNet.toFixed(2) + `</td>
+      <td>` + fmtNum(GameTypeArry[i].TotalBet) + `</td>
+      <td` + negClass(GameTypeArry[i].TotalNet) + `>` + fmtNum(GameTypeArry[i].TotalNet) + `</td>
       <td>`+ GameTypeArry[i].RoundCount +` </td>
-      <td` + negClass(GameTypeArry[i].TotalNet) + `>`+ (GameTypeArry[i].TotalNet.toFixed(2) /  GameTypeArry[i].TotalBet.toFixed(2) * 100).toFixed(2) +` % </td>
+      <td` + negClass(GameTypeArry[i].TotalNet) + `>`+ fmtNum(GameTypeArry[i].TotalBet > 0 ? GameTypeArry[i].TotalNet / GameTypeArry[i].TotalBet * 100 : 0) +` % </td>
       </tr>
       `
     )
@@ -1401,9 +1411,9 @@ function RoundTop(x){
   $(".RoundTop").append(`
   <tr` + gapTitle + `>
     <td>` + RoundArry[x].RoundId + `</td>
-    <td>` + RoundArry[x].TotalRoundBet.toFixed(2) + `</td>
-    <td` + negClass(RoundArry[x].TotalRoundNet) + `>` + RoundArry[x].TotalRoundNet.toFixed(2) + `</td>
-    <td` + negClass(RoundArry[x].TotalRoundNet) + `>`+ (RoundArry[x].TotalRoundNet.toFixed(2) /  RoundArry[x].TotalRoundBet.toFixed(2) * 100).toFixed(2)+` % </td>
+    <td>` + fmtNum(RoundArry[x].TotalRoundBet) + `</td>
+    <td` + negClass(RoundArry[x].TotalRoundNet) + `>` + fmtNum(RoundArry[x].TotalRoundNet) + `</td>
+    <td` + negClass(RoundArry[x].TotalRoundNet) + `>`+ fmtNum(RoundArry[x].TotalRoundBet > 0 ? RoundArry[x].TotalRoundNet / RoundArry[x].TotalRoundBet * 100 : 0) +` % </td>
     </tr>
     `
   )
@@ -1449,9 +1459,9 @@ function BetPositionTop(){
     rows += (`
       <tr>
                                           <td>` + e.BetPosition + `</td>
-                                            <td>` + e.TotalBet.toFixed(2) + `</td>
-                                                <td` + negClass(e.TotalNet) + `>` + e.TotalNet.toFixed(2) + `</td>
-                                                <td` + negClass(e.TotalNet) + `>` + (e.TotalBet > 0 ? (e.TotalNet.toFixed(2) / e.TotalBet.toFixed(2) * 100).toFixed(2) : '0.00') + ` % </td>
+                                            <td>` + fmtNum(e.TotalBet) + `</td>
+                                                <td` + negClass(e.TotalNet) + `>` + fmtNum(e.TotalNet) + `</td>
+                                                <td` + negClass(e.TotalNet) + `>` + fmtNum(e.TotalBet > 0 ? e.TotalNet / e.TotalBet * 100 : 0) + ` % </td>
                                                 <td>` + e.RoundCount + `</td>
                                                 <td>` + e.Category + `</td>
                                             </tr>
@@ -1462,9 +1472,9 @@ function BetPositionTop(){
 
   // Grand totals follow the current filter
   let tMargin = tBet > 0 ? tNet / tBet * 100 : 0;
-  $( '.table-bettop .foot-bet').text(tBet.toFixed(2));
-  $( '.table-bettop .foot-net').html(negWrap(tNet, tNet.toFixed(2)));
-  $( '.table-bettop .foot-margin').html(negWrap(tNet, tMargin.toFixed(2) + ' %'));
+  $( '.table-bettop .foot-bet').text(fmtNum(tBet));
+  $( '.table-bettop .foot-net').html(negWrap(tNet, fmtNum(tNet)));
+  $( '.table-bettop .foot-margin').html(negWrap(tNet, fmtNum(tMargin) + ' %'));
   $( '.table-bettop .foot-count').text(tCnt);
 
   $( '.table-bettop').DataTable({order: [], autoWidth: false});
@@ -1571,7 +1581,7 @@ function generateFindings(){
   }
 
   function eur(v){
-    return '€' + Math.abs(v).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+    return '€' + fmtNum(Math.abs(v));
   }
   function pct(part, total){
     return total > 0 ? part / total * 100 : 0;
@@ -1586,22 +1596,22 @@ function generateFindings(){
         add('warning', '<b>High win rate explained by systematic coverage:</b> ' + coverStats.heavy + ' of ' + rounds +
             ' round(s) cover ' + coverStats.heavyMin + '+ of ' + coverStats.maxPockets +
             ' pockets — the outcome is near-guaranteed by construction, not an advantage-play signal (win rate ' +
-            effWin.toFixed(1) + '%, expected ~48-49%).');
+            fmtNum(effWin, 1) + '%, expected ~48-49%).');
       }else{
-        add('danger', '<b>Abnormally high win rate:</b> ' + effWin.toFixed(1) + '% (' + WinRoundCnt +
+        add('danger', '<b>Abnormally high win rate:</b> ' + fmtNum(effWin, 1) + '% (' + WinRoundCnt +
             ' wins in ' + decided + ' decided rounds), expected is ~48-49%.');
       }
     }else if(effWin <= 42){
-      add('success', 'Win rate ' + effWin.toFixed(1) + '% is below expectation — no advantage play signs.');
+      add('success', 'Win rate ' + fmtNum(effWin, 1) + '% is below expectation — no advantage play signs.');
     }else{
-      add('success', 'Win rate ' + effWin.toFixed(1) + '% is within the expected range.');
+      add('success', 'Win rate ' + fmtNum(effWin, 1) + '% is within the expected range.');
     }
   }
 
   // ---- 2. Session result: profit alone is routine — flag it only from €50k ----
   if(TotalNet >= 50000){
     let lvl = (effWin >= 55 && decided >= 20) ? 'danger' : 'warning';
-    add(lvl, '<b>Player finished in profit:</b> +' + eur(TotalNet) + ' (margin +' + Margin.toFixed(2) + '%).');
+    add(lvl, '<b>Player finished in profit:</b> +' + eur(TotalNet) + ' (margin +' + fmtNum(Margin) + '%).');
   }
 
   // ---- 2b. Profit concentration: top-3 wins share of gross winnings (luck vs edge) ----
@@ -1616,7 +1626,7 @@ function generateFindings(){
     let sh = gsum > 0 ? t3 / gsum * 100 : 0;
     if(sh >= 50){
       add('info', '<b>Profit concentrated in a few rounds:</b> top 3 wins (' + eur(t3) + ') make ' +
-          sh.toFixed(0) + '% of all winnings — result depends on isolated rounds, not a stable edge.');
+          fmtNum(sh, 0) + '% of all winnings — result depends on isolated rounds, not a stable edge.');
     }
   })();
 
@@ -1629,7 +1639,7 @@ function generateFindings(){
 
   if(rounds >= 5 && maxRound && avgBet > 0 && maxRound.TotalRoundBet >= 3 * avgBet){
     add('warning', '<b>Bet ramp:</b> sudden sharp bet increase up to ' + eur(maxRound.TotalRoundBet) +
-        ' (' + (maxRound.TotalRoundBet / avgBet).toFixed(1) + '× the average, round ' + maxRound.RoundId +
+        ' (' + fmtNum(maxRound.TotalRoundBet / avgBet, 1) + '× the average, round ' + maxRound.RoundId +
         ') — may indicate advantage play.');
   }
   // erratic = both systems strongly present with no clear dominance
@@ -1638,12 +1648,12 @@ function generateFindings(){
     if(isLowPositionGame(domGame)){
       // card games have only a few positions: mixing sides and stake sizes is
       // normal play, and the bot check covers the scripting question separately
-      add('info', 'Erratic bet sizing: negative pattern in ' + negPct.toFixed(0) +
-          '% and positive pattern in ' + upPct.toFixed(0) + '% of rounds — in ' + domGame.toLowerCase() +
+      add('info', 'Erratic bet sizing: negative pattern in ' + fmtNum(negPct, 0) +
+          '% and positive pattern in ' + fmtNum(upPct, 0) + '% of rounds — in ' + domGame.toLowerCase() +
           ' the player mixes sides and stake sizes, which is normal play; noted for the report.');
     }else{
-      add('warning', '<b>Erratic strategy:</b> no consistent staking system — negative pattern in ' + negPct.toFixed(0) +
-          '% and positive pattern in ' + upPct.toFixed(0) + '% of rounds — could indicate testing, scripting or manipulation.');
+      add('warning', '<b>Erratic strategy:</b> no consistent staking system — negative pattern in ' + fmtNum(negPct, 0) +
+          '% and positive pattern in ' + fmtNum(upPct, 0) + '% of rounds — could indicate testing, scripting or manipulation.');
     }
   }
 
@@ -1678,13 +1688,13 @@ function generateFindings(){
       // monitoring, so it stays an info note and does not land in "needs attention".
       add('info',
           '<b>Max loss streak: ' + ls.len + ' rounds</b>' +
-          (ls.avg > 0 ? ' (avg raise ' + ls.avg.toFixed(1) + '× per step)' : '') +
+          (ls.avg > 0 ? ' (avg raise ' + fmtNum(ls.avg, 1) + '× per step)' : '') +
           (tilt ? ' — player escalates stakes after losses (tilt): note for AML and responsible-gaming monitoring, not a fraud risk — the session is at a loss.'
                  : ' — stakes kept flat while losing, disciplined chasing.'));
     }
     if(ws.len >= 5){
       add('info', '<b>Max win streak: ' + ws.len + ' rounds</b>' +
-          (ws.avg > 0 ? ' (avg raise ' + ws.avg.toFixed(1) + '× per step)' : '') + '.');
+          (ws.avg > 0 ? ' (avg raise ' + fmtNum(ws.avg, 1) + '× per step)' : '') + '.');
     }
   })();
   if(samePct >= 70){
@@ -1693,14 +1703,14 @@ function generateFindings(){
   if(negPct >= 30){
     if(martingeil >= 1){
       add('info', 'Martingale betting system (5+ consecutive doublings after losses): ' + martingeil +
-          ' chain(s) detected, negative pattern in ' + negPct.toFixed(0) + '% of rounds.');
+          ' chain(s) detected, negative pattern in ' + fmtNum(negPct, 0) + '% of rounds.');
     }else{
-      add('info', 'Negative progression (raises stakes after losses) in ' + negPct.toFixed(0) +
+      add('info', 'Negative progression (raises stakes after losses) in ' + fmtNum(negPct, 0) +
           '% of rounds — no martingale chain (5+ doublings), acceptable for ' + domGame.toLowerCase() + ' if other indicators are clean.');
     }
   }
   if(upPct >= 50){
-    add('info', 'Positive progression (raises after wins) in ' + upPct.toFixed(0) + '% of rounds.');
+    add('info', 'Positive progression (raises after wins) in ' + fmtNum(upPct, 0) + '% of rounds.');
   }
 
   // ---- 4. Round skipping (manual: "frequently skips game rounds, possibly
@@ -1709,9 +1719,9 @@ function generateFindings(){
   let skipShare = (RoundSkipp > 0) ? EstSkippedRounds / (rounds + EstSkippedRounds) * 100 : 0;
   if(skipShare >= 30){
     add('danger', '<b>Frequently skips game rounds:</b> est. ' + EstSkippedRounds + ' round(s) skipped in ' +
-        RoundSkipp + ' gap(s) (' + skipShare.toFixed(0) + '%) — possibly waiting for favorable conditions.');
+        RoundSkipp + ' gap(s) (' + fmtNum(skipShare, 0) + '%) — possibly waiting for favorable conditions.');
   }else if(skipShare >= 15){
-    add('warning', 'Player skips rounds: est. ' + EstSkippedRounds + ' round(s) skipped (' + skipShare.toFixed(0) + '% of the session).');
+    add('warning', 'Player skips rounds: est. ' + EstSkippedRounds + ' round(s) skipped (' + fmtNum(skipShare, 0) + '% of the session).');
   }
 
   // ---- 5. Fragmented session (manual: "playing in short bursts with breaks
@@ -1745,13 +1755,13 @@ function generateFindings(){
     }
     let share = pct(topCnt.RoundCount, rounds);
     if(share >= 50 && topCnt.TotalNet > 0 && DealerArry.length < 3){
-      add('warning', '<b>Dealer concentration:</b> ' + share.toFixed(0) + '% of rounds with dealer ' +
+      add('warning', '<b>Dealer concentration:</b> ' + fmtNum(share, 0) + '% of rounds with dealer ' +
           topCnt.DealerName + ', player net +' + eur(topCnt.TotalNet) + ' with them.');
     }
     // 7c. Frequent dealer switching (manual: "plays only 1-2 hands per dealer")
     if(rounds / DealerArry.length <= 2.5 && DealerArry.length >= 6){
       add('warning', '<b>Frequent dealer switching:</b> ' + DealerArry.length + ' dealers over ' + rounds +
-          ' rounds (~' + (rounds / DealerArry.length).toFixed(1) + ' rounds each) — possible detection avoidance.');
+          ' rounds (~' + fmtNum(rounds / DealerArry.length, 1) + ' rounds each) — possible detection avoidance.');
     }
     // 7d. Sharp margin swings between dealers (manual: "+100% to -150%")
     let dMin = null, dMax = null;
@@ -1763,8 +1773,8 @@ function generateFindings(){
       if(dMax === null || m > dMax.m){ dMax = {d: d, m: m}; }
     }
     if(dMin && dMax && dMax.m - dMin.m > 150){
-      add('warning', '<b>Sharp margin swings between dealers:</b> ' + dMax.d.DealerName + ' (+' + dMax.m.toFixed(0) +
-          '%) vs ' + dMin.d.DealerName + ' (' + dMin.m.toFixed(0) + '%) — statistical outlier per Dealer Report criteria.');
+      add('warning', '<b>Sharp margin swings between dealers:</b> ' + dMax.d.DealerName + ' (+' + fmtNum(dMax.m, 0) +
+          '%) vs ' + dMin.d.DealerName + ' (' + fmtNum(dMin.m, 0) + '%) — statistical outlier per Dealer Report criteria.');
     }
   }
 
@@ -1922,9 +1932,9 @@ function analyzeBot(){
   let paceSource = base.source;
 
   if(rounds > 500){ sig++; notes.push('very long session: ' + rounds + ' rounds (> 500) — bots play long, flat sessions without tiring'); }
-  if(entropy < 2.5 && distinctTypes > 0 && !lowPosGame){ sig++; notes.push('few repeating bets: only ' + distinctTypes + ' bet type(s) used (' + entropy.toFixed(2) + ' bits) — bots stick to the same pattern'); }
+  if(entropy < 2.5 && distinctTypes > 0 && !lowPosGame){ sig++; notes.push('few repeating bets: only ' + distinctTypes + ' bet type(s) used (' + fmtNum(entropy) + ' bits) — bots stick to the same pattern'); }
   // scripted play keeps the stake almost fixed; a human spreads it out
-  if(betVar < 1.5 && avgBet > 0){ sig++; notes.push('stake almost never changes: max bet is only ' + (betVar > 0 ? betVar.toFixed(1) : '0') + '× the average'); }
+  if(betVar < 1.5 && avgBet > 0){ sig++; notes.push('stake almost never changes: max bet is only ' + (betVar > 0 ? fmtNum(betVar, 1) : '0') + '× the average'); }
   // very fast, steady cadence — but only if it is fast for THAT game / client
   // (baccarat tables run ~32 s, roulette ~40 s; 25 s on baccarat is normal)
   let tooFast = useClientPace
@@ -1932,8 +1942,8 @@ function analyzeBot(){
     : (cadence > 0 && cadence < 0.5 && cadence < gameTypicalMin * 0.7);
   if(tooFast){
     sig++;
-    notes.push('plays very fast: median ' + (cadence * 60).toFixed(0) + ' s between rounds (normal for ' +
-               paceSource + ' is ~' + (gameTypicalMin * 60).toFixed(0) + ' s) — bots do not hesitate');
+    notes.push('plays very fast: median ' + fmtNum(cadence * 60, 0) + ' s between rounds (normal for ' +
+               paceSource + ' is ~' + fmtNum(gameTypicalMin * 60, 0) + ' s) — bots do not hesitate');
   }
   if(rounds > 300 && breakCnt <= 1){ sig++; notes.push('at most one break in ' + rounds + ' rounds — a human usually pauses'); }
 
@@ -1967,7 +1977,7 @@ function computeWinnerAnswers(){
 
   let p = function(v){ return rounds > 0 ? v / rounds * 100 : 0; };
   function eur(v){
-    return '€' + Math.abs(v).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+    return '€' + fmtNum(Math.abs(v));
   }
 
   // ---------- Betting progression (exact report options) ----------
@@ -2011,7 +2021,7 @@ function computeWinnerAnswers(){
   let progWhy;
   if(rounds <= 1){ progWhy = 'only 1 round in the session'; }
   else{
-    progWhy = 'flat ' + samePct.toFixed(0) + '% · negative ' + negPct.toFixed(0) + '% · positive ' + upPct2.toFixed(0) + '% of ' + rounds + ' rounds' +
+    progWhy = 'flat ' + fmtNum(samePct, 0) + '% · negative ' + fmtNum(negPct, 0) + '% · positive ' + fmtNum(upPct2, 0) + '% of ' + rounds + ' rounds' +
       (martingeil >= 1 ? ' · ' + martingeil + ' martingale chain(s) of 5+ doublings' : '');
   }
   answers.push({group: 'Report dropdowns', field: 'Betting progression', value: prog, why: progWhy});
@@ -2031,7 +2041,7 @@ function computeWinnerAnswers(){
   let contWhy;
   if(rounds == 1){ contWhy = 'only 1 round in the session'; }
   else if(RoundSkipp == 0){ contWhy = rounds + ' played rounds, no skip gaps (' + currentBreakRules().SKIP_MIN + '–' + currentBreakRules().SKIP_MAX + ' min)'; }
-  else{ contWhy = 'est. ' + EstSkippedRounds + ' skipped of ' + (rounds + EstSkippedRounds) + ' (' + skipShare.toFixed(0) + '%) in ' + RoundSkipp + ' skip gap(s)'; }
+  else{ contWhy = 'est. ' + EstSkippedRounds + ' skipped of ' + (rounds + EstSkippedRounds) + ' (' + fmtNum(skipShare, 0) + '%) in ' + RoundSkipp + ' skip gap(s)'; }
   answers.push({group: 'Report dropdowns', field: 'Bet continuity', value: cont, why: contWhy});
 
   // ---------- Breaks during analysis (exact report options) ----------
@@ -2113,13 +2123,13 @@ function computeWinnerAnswers(){
   answers.push({group: 'Winning statistics', field: 'Maximum round winning', value: eur(maxW), note: 'in ' + maxWCount + (maxWCount === 1 ? ' round' : ' rounds')});
   answers.push({group: 'Winning statistics', field: 'Minimum round winning', value: eur(minW), note: 'in ' + minWCount + (minWCount === 1 ? ' round' : ' rounds')});
   answers.push({group: 'Winning statistics', field: 'Average round winning', value: eur(winNets.length > 0 ? sumW / winNets.length : 0)});
-  answers.push({group: 'Winning statistics', field: 'Top 3 winnings share', value: eur(top3sum), note: top3share.toFixed(0) + '% of all winnings'});
+  answers.push({group: 'Winning statistics', field: 'Top 3 winnings share', value: eur(top3sum), note: fmtNum(top3share, 0) + '% of all winnings'});
   answers.push({group: 'Winning statistics', field: 'Average round result',
                 value: (sRounds > 0 && sTotalNet >= 0 ? '+' : (sRounds > 0 ? '-' : '')) + eur(sRounds > 0 ? sTotalNet / sRounds : 0),
                 neg: sRounds > 0 && sTotalNet < 0});
 
   // ---------- Rounds ----------
-  let pct = function(v){ return sRounds > 0 ? (v / sRounds * 100).toFixed(2) + ' % of all games' : '—'; };
+  let pct = function(v){ return sRounds > 0 ? fmtNum(v / sRounds * 100) + ' % of all games' : '—'; };
   answers.push({group: 'Rounds', field: 'Winning rounds', value: String(sWin), note: pct(sWin)});
   answers.push({group: 'Rounds', field: 'Losing rounds',  value: String(sLoss), note: pct(sLoss)});
   answers.push({group: 'Rounds', field: 'Even round',     value: String(sTie), note: pct(sTie)});
@@ -2312,8 +2322,8 @@ betChart = new Chart(document.getElementById("bar-chart"), {
                     label: function (tooltipItem) {
                         let index = tooltipItem.dataIndex;
                         let roundId = RoundArry[index].RoundId;
-                        let totalBet = RoundArry[index].TotalRoundBet.toFixed(2);
-                        let totalNet = RoundArry[index].TotalRoundNet.toFixed(2);
+                        let totalBet = fmtNum(RoundArry[index].TotalRoundBet);
+                        let totalNet = fmtNum(RoundArry[index].TotalRoundNet);
 
                         return [
                             `Round ID: ${roundId}`,
@@ -2366,7 +2376,7 @@ function chartTipShow(clientX, clientY, round){
   if(chartTipFor !== round.RoundId){
     tip.html(
       '<div class="gap-tip-ids">Round <span class="gap-copy" data-round="' + String(round.RoundId).replace(/"/g, '&quot;') + '">' + round.RoundId + '</span></div>' +
-      '<div class="gap-tip-meta">Bet &euro;' + round.TotalRoundBet.toFixed(2) + ' &middot; Net &euro;' + round.TotalRoundNet.toFixed(2) + '</div>'
+      '<div class="gap-tip-meta">Bet &euro;' + fmtNum(round.TotalRoundBet) + ' &middot; Net &euro;' + fmtNum(round.TotalRoundNet) + '</div>'
     );
     chartTipFor = round.RoundId;
   }
