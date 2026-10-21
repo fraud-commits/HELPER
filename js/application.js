@@ -73,6 +73,66 @@ function fmtNum(v, digits){
   return (neg ? '-' : '') + out;
 }
 
+// ---- Stake level of a round: the biggest single bet played in it ----
+// The round TOTAL is not a staking decision: a roulette round covering 30
+// pockets is 30x heavier than a round with one position, so the total alone
+// drowns the progression signal (covering more numbers looks like "raising
+// the stake"). The biggest single bet is the number the player actually
+// chose. Games with one bet per round (blackjack, baccarat) are unchanged,
+// and blackjack hand actions (double/split/insurance) stay excluded — they
+// are hand decisions, not staking decisions.
+function roundStake(r){
+  if(!r){ return 0; }
+  if(r.MaxTierBet > 0){ return r.MaxTierBet; }
+  return r.BaseBet > 0 ? r.BaseBet : r.TotalRoundBet;
+}
+
+// ---- Stake level across a set of rounds ----
+// avg / max of the stake level + the average number of bets per round
+// (the coverage: a player who changes it every round looks chaotic in the
+// totals but can be perfectly flat in the stake).
+function stakeStats(arr){
+  let sum = 0, max = 0, maxRound = null, sumPos = 0, n = 0;
+  for(let i = 0; i < arr.length; i++){
+    const r = arr[i];
+    if(!r){ continue; }
+    const s = roundStake(r);
+    sum += s;
+    sumPos += r.BetCount > 0 ? r.BetCount : 1;
+    n++;
+    if(s > max){ max = s; maxRound = r; }
+  }
+  return {
+    avg: n > 0 ? sum / n : 0,
+    max: max,
+    maxRound: maxRound,
+    avgPositions: n > 0 ? sumPos / n : 0
+  };
+}
+
+// ---- Betting progression label (exact report options) ----
+// Pure function: the buckets come from BetProgression() (on the stake level),
+// the label only maps them to the report wording.
+function pickProgressionLabel(rounds, samePct, negPct, upPct, martingeil, erratic){
+  if(rounds <= 1){ return 'Other one'; }
+  if(martingeil >= 1 && negPct >= 50){ return 'Martingale betting system'; }
+  if(samePct >= 70){ return 'Flat wagers'; }
+  if(erratic){ return 'Chaotic wagers, regardless to previous game outcome'; }
+  if(negPct >= 70){ return 'Negative progression'; }
+  if(negPct >= 50){ return 'Mainly negative betting progression'; }
+  if(upPct >= 85){ return 'Positive progression'; }
+  if(upPct >= 60){ return 'Progressive betting'; }
+  if(samePct >= 50){ return 'Mainly flat wagers'; }
+  if(negPct >= 20 && upPct >= 20 && samePct >= 25){ return 'Chaotic, however at some passages flat wagers'; }
+  if(negPct >= 20 && upPct >= 20 && negPct > upPct){ return 'Chaotic, at some passages negative progression is selected'; }
+  if(negPct >= 20 && upPct >= 20){ return 'Chaotic wagers, regardless to previous game outcome'; }
+  if(negPct >= 30 && samePct >= 20 && negPct >= samePct){ return 'Negative progression, however at some passages flat'; }
+  if(upPct >= 30 && samePct >= 20 && upPct > samePct){ return 'Progressive betting'; }
+  if(samePct >= negPct && samePct >= upPct){ return 'Mainly flat wagers'; }
+  if(negPct >= upPct){ return 'Mainly negative betting progression'; }
+  return 'Progressive betting';
+}
+
 // Watchdog: if Tableau never answers with data (blocked extension, missing
 // sheet, unset filters), say so instead of leaving eternal zeros/dashes.
 let booted = false;
@@ -670,6 +730,8 @@ function RoundTotla(indexStart,indexNext){
       RoundId: worksheetData[indexStart][RoundID].formattedValue,
       TotalRoundBet: 0,
       BaseBet: 0, // hand stake without in-game actions (blackjack double/split/insurance)
+      MaxTierBet: 0, // biggest single bet of the round = the stake level
+      BetCount: 0, // number of bets (positions) in the round
       TotalRoundNet:0,
       DealerName: worksheetData[indexStart][DealerName].formattedValue,
       TableName: worksheetData[indexStart][TableName].formattedValue,
@@ -738,6 +800,11 @@ function RoundTotla(indexStart,indexNext){
     // those are hand decisions, not staking decisions, so progression uses BaseBet
     if(!isHandAction(worksheetData[indexStart][GameType].formattedValue, worksheetData[indexStart][BetPosition].formattedValue)){
       element.BaseBet += worksheetData[indexStart][BetEUR].value;
+      // stake level: the biggest single bet of the round (the real staking
+      // decision) — the round total would mix it with the coverage
+      let betVal = worksheetData[indexStart][BetEUR].value;
+      if(betVal > element.MaxTierBet){ element.MaxTierBet = betVal; }
+      element.BetCount += 1;
     }
     // per-round bet-position set (roulette layout coverage analysis)
     if(!element.Positions){ element.Positions = {}; }
@@ -1182,10 +1249,11 @@ function BetProgression (){
     // negative pattern = raise after a loss OR lower after a win;
     // positive pattern = raise after a win OR lower after a loss.
     // (chaotic is session-level — both systems mixed — not a transition label.)
-    // BaseBet = hand stake without blackjack double/split/insurance actions;
-    // falls back to the total when a round has no base stake (safety).
-    let curBet = RoundArry[cur].BaseBet > 0 ? RoundArry[cur].BaseBet : RoundArry[cur].TotalRoundBet;
-    let nextBet = RoundArry[next].BaseBet > 0 ? RoundArry[next].BaseBet : RoundArry[next].TotalRoundBet;
+    // The stake compared is the STAKE LEVEL (biggest single bet of the round),
+    // not the round total: a roulette player covering 30 pockets would look
+    // like a staking system if the total was used.
+    let curBet = roundStake(RoundArry[cur]);
+    let nextBet = roundStake(RoundArry[next]);
     let curNet = RoundArry[cur].TotalRoundNet;
     if (Math.abs(nextBet - curBet) <= curBet * 0.02){
       same += 1; //Flat
@@ -1207,12 +1275,14 @@ function BetProgression (){
   // ---- Martingale: a run of >= 5 consecutive doublings (x2, 2% tolerance) after
   // losses — 2 -> 4 -> 8 -> 16 -> 32 (and further). A shorter run is ordinary
   // negative progression: two random bigger stakes are NOT a martingale system.
+  // Counted on the stake level (see roundStake) — on the round total a player
+  // who doubles the number of covered pockets would fake a doubling chain.
   let mgRun = 0;
   martingeil = 0;   // number of chains of >= 5 consecutive doublings
   for(let i = 1; i < RoundArry.length; i++){
     let prevRound = RoundArry[i-1], curRound = RoundArry[i];
-    let prevBet = prevRound.BaseBet > 0 ? prevRound.BaseBet : prevRound.TotalRoundBet;
-    let curBet = curRound.BaseBet > 0 ? curRound.BaseBet : curRound.TotalRoundBet;
+    let prevBet = roundStake(prevRound);
+    let curBet = roundStake(curRound);
     if(prevRound.TotalRoundNet <= 0 && prevBet > 0 && curBet >= prevBet * 1.95){
       // 1.95 (not 2.00) absorbs cent rounding of the stake — 384.16 -> 752.95 is
       // 1.9599x and must still count as a doubling step
@@ -1555,8 +1625,6 @@ function generateFindings(){
   let rounds   = RoundArry.length;
   let decided  = WinRoundCnt + LossRoundCnt; // rounds without ties
   let effWin   = decided > 0 ? WinRoundCnt / decided * 100 : 0;
-  let avgBet   = rounds  > 0 ? TotalBet / rounds : 0;
-  let maxRound = null;
 
   // ---- roulette layout coverage (computed early: it explains a high win rate) ----
   // a round that covers most of the wheel wins almost regardless of the ball, so
@@ -1574,11 +1642,11 @@ function generateFindings(){
     if(cov >= rouletteRedLine(r.GameType)){ coverStats.redLine++; }
   }
 
-  for(let i = 0; i < rounds; i++){
-    if(maxRound === null || RoundArry[i].TotalRoundBet > maxRound.TotalRoundBet){
-      maxRound = RoundArry[i];
-    }
-  }
+  // ---- stake level across the session (the biggest single bet of a round) ----
+  // the ramp check and the stake-variance signal run on it: covering more
+  // pockets must not look like a bet ramp
+  let stake = stakeStats(RoundArry);
+  let avgStake = stake.avg, maxStake = stake.max, maxStakeRound = stake.maxRound;
 
   function eur(v){
     return '€' + fmtNum(Math.abs(v));
@@ -1637,9 +1705,9 @@ function generateFindings(){
   let negPct    = pct(negativ + martingeil, rounds);
   let upPct     = pct(up, rounds);
 
-  if(rounds >= 5 && maxRound && avgBet > 0 && maxRound.TotalRoundBet >= 3 * avgBet){
-    add('warning', '<b>Bet ramp:</b> sudden sharp bet increase up to ' + eur(maxRound.TotalRoundBet) +
-        ' (' + fmtNum(maxRound.TotalRoundBet / avgBet, 1) + '× the average, round ' + maxRound.RoundId +
+  if(rounds >= 5 && maxStakeRound && avgStake > 0 && maxStake >= 3 * avgStake){
+    add('warning', '<b>Bet ramp:</b> sudden sharp bet increase up to ' + eur(maxStake) +
+        ' (' + fmtNum(maxStake / avgStake, 1) + '× the average stake, round ' + maxStakeRound.RoundId +
         ') — may indicate advantage play.');
   }
   // erratic = both systems strongly present with no clear dominance
@@ -1893,14 +1961,11 @@ function analyzeBot(){
     }
   }
 
-  // ---- 2. Stake variance (max bet / average bet, on the BASE hand stake —
-  //         blackjack double/split actions would fake a 2x spike) ----
-  let avgBet = 0, maxBet = 0;
-  if(rounds > 0){ avgBet = TotalBet / rounds; }
-  for(let i = 0; i < rounds; i++){
-    let b = RoundArry[i].BaseBet > 0 ? RoundArry[i].BaseBet : RoundArry[i].TotalRoundBet;
-    if(b > maxBet){ maxBet = b; }
-  }
+  // ---- 2. Stake variance (max stake level / average stake level) ----
+  // the stake level is the biggest single bet of a round; the round total
+  // would fake variance for a player who covers a different number of pockets
+  let stake = stakeStats(RoundArry);
+  let avgBet = stake.avg, maxBet = stake.max;
   let betVar = avgBet > 0 ? maxBet / avgBet : 0;
 
   // ---- 3. Median cadence between played rounds ----
@@ -1996,24 +2061,7 @@ function computeWinnerAnswers(){
   let upPctD  = decidedD > 0 ? up / decidedD * 100 : 0;
   let erratic = rounds >= 15 && negPctD >= 25 && upPctD >= 25 && Math.abs(negPctD - upPctD) < 25;
 
-  let prog;
-  if(rounds <= 1){ prog = 'Other one'; }
-  else if(martingeil >= 1 && negPct >= 50){ prog = 'Martingale betting system'; }
-  else if(samePct >= 70){ prog = 'Flat wagers'; }
-  else if(erratic){ prog = 'Chaotic wagers, regardless to previous game outcome'; }
-  else if(negPct >= 70){ prog = 'Negative progression'; }
-  else if(negPct >= 50){ prog = 'Mainly negative betting progression'; }
-  else if(upPct2 >= 85){ prog = 'Positive progression'; }
-  else if(upPct2 >= 60){ prog = 'Progressive betting'; }
-  else if(samePct >= 50){ prog = 'Mainly flat wagers'; }
-  else if(negPct >= 20 && upPct2 >= 20 && samePct >= 25){ prog = 'Chaotic, however at some passages flat wagers'; }
-  else if(negPct >= 20 && upPct2 >= 20 && negPct > upPct2){ prog = 'Chaotic, at some passages negative progression is selected'; }
-  else if(negPct >= 20 && upPct2 >= 20){ prog = 'Chaotic wagers, regardless to previous game outcome'; }
-  else if(negPct >= 30 && samePct >= 20 && negPct >= samePct){ prog = 'Negative progression, however at some passages flat'; }
-  else if(upPct2 >= 30 && samePct >= 20 && upPct2 > samePct){ prog = 'Progressive betting'; }
-  else if(samePct >= negPct && samePct >= upPct2){ prog = 'Mainly flat wagers'; }
-  else if(negPct >= upPct2){ prog = 'Mainly negative betting progression'; }
-  else{ prog = 'Progressive betting'; }
+  let prog = pickProgressionLabel(rounds, samePct, negPct, upPct2, martingeil, erratic);
 
   // NOTE: no "Ramping (Card counter)" override — a late bet spike alone is not enough
   // evidence for card counting; the percentage-based label below applies instead.
@@ -2021,8 +2069,14 @@ function computeWinnerAnswers(){
   let progWhy;
   if(rounds <= 1){ progWhy = 'only 1 round in the session'; }
   else{
+    // average coverage: a player who changes the number of covered pockets
+    // every round looks chaotic in the totals but can be flat in the stake
+    let sumPos = 0;
+    for(let i = 0; i < rounds; i++){ sumPos += RoundArry[i].BetCount > 0 ? RoundArry[i].BetCount : 1; }
+    let avgPos = sumPos / rounds;
     progWhy = 'flat ' + fmtNum(samePct, 0) + '% · negative ' + fmtNum(negPct, 0) + '% · positive ' + fmtNum(upPct2, 0) + '% of ' + rounds + ' rounds' +
-      (martingeil >= 1 ? ' · ' + martingeil + ' martingale chain(s) of 5+ doublings' : '');
+      (martingeil >= 1 ? ' · ' + martingeil + ' martingale chain(s) of 5+ doublings' : '') +
+      (avgPos > 1.5 ? ' · ~' + fmtNum(avgPos, 0) + ' bets per round' : '');
   }
   answers.push({group: 'Report dropdowns', field: 'Betting progression', value: prog, why: progWhy});
 
