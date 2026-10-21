@@ -682,6 +682,29 @@ th { white-space: nowrap; }
 .finding-success { border-left-color: var(--teal); background: var(--success-bg); }
 .finding-success i { color: var(--teal); }
 
+/* Data-quality banner (duplicated rounds in the source sheet) */
+.dq-banner{
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px 14px;
+  margin: 0 0 10px 0;
+  border-radius: 6px;
+  border-left: 4px solid var(--warn);
+  background: var(--warn-bg);
+  color: var(--ink);
+  font-size: 13px;
+  line-height: 1.5;
+}
+.dq-banner i{
+  margin-top: 2px;
+  font-size: 15px;
+  color: var(--warn-ink);
+}
+.dq-banner b{
+  font-weight: 600;
+}
+
 /* Negative values in red */
 .neg-val{
 color: var(--red) !important;
