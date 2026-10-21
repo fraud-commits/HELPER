@@ -73,55 +73,6 @@ function fmtNum(v, digits){
   return (neg ? '-' : '') + out;
 }
 
-// ================== DATA QUALITY: DUPLICATED ROUNDS ==================
-// The source sheet can return the same round twice: identical Round ID,
-// identical bets and results, but the second copy is re-stamped with a later
-// timestamp. Keeping both inflates turnover / net / margin and every
-// threshold-based finding, so the first copy is kept and the duplicate is
-// reported to the analyst.
-// rows: sheet rows, cols: {time, roundId, userId, bet, net}, parseTime: fn
-function dedupeDuplicatedRounds(rows, cols, parseTime){
-  let minTs = new Map();
-  function tsOf(r){
-    let v = r[cols.time] && r[cols.time].formattedValue;
-    if(v === undefined || v === null || v === ''){ return null; }
-    let m = parseTime(v);
-    return m ? m.valueOf() : null;
-  }
-  function keyOf(r){
-    let rid = r[cols.roundId] && r[cols.roundId].formattedValue;
-    if(!rid){ return null; }
-    let uid = r[cols.userId] ? r[cols.userId].formattedValue : '';
-    return String(uid) + '|' + String(rid);
-  }
-  for(let i = 0; i < rows.length; i++){
-    let k = keyOf(rows[i]);
-    if(k === null){ continue; }
-    let ts = tsOf(rows[i]);
-    if(ts === null){ continue; }
-    let cur = minTs.get(k);
-    if(cur === undefined || ts < cur){ minTs.set(k, ts); }
-  }
-  let keep = [], dupKeys = new Set(), dupRows = 0, dupBet = 0, dupNet = 0, sample = [];
-  for(let i = 0; i < rows.length; i++){
-    let r = rows[i], k = keyOf(r), ts = tsOf(r);
-    let isDup = (k !== null && ts !== null && minTs.has(k) && ts > minTs.get(k));
-    if(isDup){
-      dupKeys.add(k);
-      dupRows++;
-      dupBet += (r[cols.bet] && r[cols.bet].value) || 0;
-      dupNet += (r[cols.net] && r[cols.net].value) || 0;
-      let rid = r[cols.roundId].formattedValue;
-      if(sample.indexOf(rid) === -1 && sample.length < 3){ sample.push(rid); }
-    }else{
-      keep.push(r);
-    }
-  }
-  if(dupRows === 0){ return {rows: rows, info: null}; }
-  return {rows: keep,
-          info: {rounds: dupKeys.size, rows: dupRows, bet: dupBet, net: dupNet, sample: sample}};
-}
-
 // Watchdog: if Tableau never answers with data (blocked extension, missing
 // sheet, unset filters), say so instead of leaving eternal zeros/dashes.
 let booted = false;
@@ -131,8 +82,6 @@ let DashGameFilter = '__all';
 let BetTypeFilter = 'all';
 // Rounds whose timestamp could not be parsed (break analysis skips them).
 let UnparsedTimeCount = 0;
-// Data-quality report: duplicated rounds removed from the sheet (see below).
-let DupRoundInfo = null;
 // chart click-tooltip element (declared here: chartTipHide() runs at refresh
 // top, long before the chart section below — late `let` would throw TDZ).
 let $chartTip = null;
@@ -511,29 +460,6 @@ function drawChartJS() {
 
             let totaltest = 0;
             var worksheetData = sumdata.data;
-
-            // ---- data quality: the same round can arrive twice (same Round ID,
-            //      later timestamp). Keep the first copy, otherwise turnover,
-            //      net, margin and the threshold findings are inflated ----
-            let dupRes = dedupeDuplicatedRounds(worksheetData,
-                         {time: RoundTime, roundId: RoundID, userId: UserId, bet: BetEUR, net: NetEUR},
-                         parseRoundTime);
-            worksheetData = dupRes.rows;
-            DupRoundInfo = dupRes.info;
-            let $dq = $('#dq-banner');
-            if($dq.length){
-              if(DupRoundInfo){
-                $dq.html('<i class="bi bi-exclamation-triangle-fill"></i><span><b>Duplicated rounds in the source data:</b> ' +
-                  DupRoundInfo.rounds + ' round(s) arrive twice with the same Round ID (the second copy is re-stamped ' +
-                  'with a later time). ' + DupRoundInfo.rows + ' duplicate bet row(s) were removed, so turnover, net, ' +
-                  'margin and the findings below are recalculated without them (−' + fmtNum(DupRoundInfo.bet) +
-                  ' turnover, −' + fmtNum(DupRoundInfo.net) + ' net). The Tableau Title fields still contain the ' +
-                  'duplicates — the source sheet has to be fixed.</span>');
-                $dq.show();
-              }else{
-                $dq.hide().empty();
-              }
-            }
 
             // ---- global game scope: the whole dashboard follows DashGameFilter ----
             // (game list built from the full fetch so "All games" is always available)
@@ -1661,17 +1587,6 @@ function generateFindings(){
     return total > 0 ? part / total * 100 : 0;
   }
   function add(level, text){ findings.push({level: level, text: text}); }
-
-  // ---- 0. Data quality: duplicated rounds in the source sheet ----
-  // the same round can be returned twice (same Round ID, later timestamp);
-  // the duplicates are removed before every calculation below
-  if(DupRoundInfo && DupRoundInfo.rows > 0){
-    add('warning', '<b>Duplicated rounds in the source data:</b> ' + DupRoundInfo.rounds + ' round(s) arrive twice with ' +
-      'the same Round ID (the second copy is re-stamped with a later time) — ' + DupRoundInfo.rows + ' duplicate bet ' +
-      'row(s) removed (−' + fmtNum(DupRoundInfo.bet) + ' turnover, −' + fmtNum(DupRoundInfo.net) + ' net). All figures ' +
-      'below are recalculated without the duplicates; the Tableau Title fields still include them, so the source sheet ' +
-      'has to be fixed.');
-  }
 
   // ---- 1. Win rate vs theoretical expectation ----
   if(decided >= 20){
