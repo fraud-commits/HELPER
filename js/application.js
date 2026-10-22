@@ -464,23 +464,30 @@ function drawChartJS() {
 
       // ---- detect a consistent native currency for the session ----
       // usable only when the sheet carries Currency + native BET + native NET
-      // and every row has the same non-EUR currency; otherwise stay in EUR
+      // and every row has the same non-EUR currency; otherwise stay in EUR.
+      // If the columns are not found by name (different client naming),
+      // they are read by position from the end of the sheet:
+      //   ... BET EUR, NET EUR, Currency, BET, NET   (defaults 8,9,10,11,12)
       SessionNative = ''; NativeBetIdx = -1; NativeNetIdx = -1;
-      let curCol = ci('currency');
-      if(curCol >= 0){
+      let colCount = (sumdata.columns || []).length;
+      let curCol = ci('currency') >= 0 ? ci('currency') : (colCount >= 13 ? colCount - 3 : -1);
+      let natBet = ci('bet') >= 0 ? ci('bet') : (colCount >= 12 ? colCount - 2 : -1);
+      let natNet = ci('net') >= 0 ? ci('net') : (colCount >= 13 ? colCount - 1 : -1);
+      if(curCol >= 0 && natBet >= 0 && natNet >= 0){
         let curPrev = '', curOk = true;
         for(let kci = 0; kci < worksheetData.length; kci++){
-          let cv = String((worksheetData[kci][curCol] && worksheetData[kci][curCol].formattedValue) || '').trim();
+          let cv = String((worksheetData[kci][curCol] && worksheetData[kci][curCol].formattedValue) || '').trim().toUpperCase();
           if(!cv){ continue; }
+          // a currency value must look like a currency code (3 letters) —
+          // protects the positional fallback from picking a neighbouring column
+          if(!/^[A-Z]{3}$/.test(cv)){ curOk = false; break; }
           if(!curPrev){ curPrev = cv; }
           else if(cv !== curPrev){ curOk = false; break; }
         }
-        let natBet = ci('bet'), natNet = ci('net');
         // native mode activates only for a consistent NON-EUR currency;
         // EUR sessions (the default layout) always read BET EUR / NET EUR
-        if(curOk && curPrev && curPrev.toUpperCase() !== 'EUR' && natBet >= 0 && natNet >= 0){
-          SessionNative = curPrev.toUpperCase();
-          NativeBetIdx = natBet; NativeNetIdx = natNet;
+        if(curOk && curPrev && curPrev !== 'EUR'){
+          SessionNative = curPrev; NativeBetIdx = natBet; NativeNetIdx = natNet;
         }
       }
 
