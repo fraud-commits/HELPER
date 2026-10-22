@@ -57,10 +57,10 @@ function themeVar(name, fallback){
   }catch(e){ return fallback; }
 }
 
-// ---- Number format (RU style): decimal comma + space thousands ----
+// ---- Number format (EN style): decimal dot + comma thousands ----
 // Every money/percent value in the UI goes through fmtNum, so tables, cards,
-// tooltips and findings all read the same way ("42 900,00" instead of
-// "42900.00"). Formatted by hand on purpose: toLocaleString('ru-RU') depends on
+// tooltips and findings all read the same way ("42,900.00" instead of
+// "42900.00"). Formatted by hand on purpose: toLocaleString('en-US') depends on
 // ICU data being present in the Tableau webview, which is not guaranteed.
 function fmtNum(v, digits){
   let d = (digits === undefined) ? 2 : digits;
@@ -68,8 +68,8 @@ function fmtNum(v, digits){
   if(!isFinite(n)){ return '—'; }
   let neg = n < 0;
   let parts = Math.abs(n).toFixed(d).split('.');
-  let int = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, '\u00a0'); // NBSP thousands
-  let out = int + (parts.length > 1 ? ',' + parts[1] : '');
+  let int = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ','); // comma thousands
+  let out = int + (parts.length > 1 ? '.' + parts[1] : '');
   return (neg ? '-' : '') + out;
 }
 
