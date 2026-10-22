@@ -443,14 +443,11 @@ function drawChartJS() {
      if ($.fn.DataTable.isDataTable('.table-roundTop')) { $('.table-roundTop').DataTable().clear().destroy(); }
      if ($.fn.DataTable.isDataTable('.table-bettop'))   { $('.table-bettop').DataTable().clear().destroy(); }
 
-           // ---- columns: everything by fixed index (column names differ per client),
-      // except BET / NET / BET EUR / NET EUR / Currency - the only universally
-      // consistent names, resolved by name with a fixed-index fallback ----
-      function normCol(v){ return String(v || '').toLowerCase().replace(/[^a-z0-9]/g, ''); }
-      let colBy = {};
-      (sumdata.columns || []).forEach(function(c, i){ colBy[normCol(c.fieldName)] = i; });
-      let ci = function(name){ return (colBy[name] !== undefined) ? colBy[name] : -1; };
-
+           // ---- columns: read strictly by fixed index (client column names differ) ----
+      // standard sheet order:
+      //   0 Timestamp, 1 Operator, 2 Round Id, 3 Dealer Id, 4 Game Type,
+      //   5 Player Id, 6 Table ID, 7 Bet Position, 8 BET EUR, 9 NET EUR,
+      //   appended at the end when present: 10 Currency, 11 BET, 12 NET
       const RoundTime = 0,
             UserId = 5,
             CompanyCode = 1,
@@ -459,38 +456,35 @@ function drawChartJS() {
             BetPosition = 7,
             DealerName = 3,
             TableName = 6,
-            BetEUR = ci('beteur') >= 0 ? ci('beteur') : 8,
-            NetEUR = ci('neteur') >= 0 ? ci('neteur') : 9;
+            BetEUR = 8,
+            NetEUR = 9;
 
       // ---- detect a consistent native currency for the session ----
-      // usable only when the sheet carries Currency + native BET + native NET
-      // and every row has the same non-EUR currency; otherwise stay in EUR.
-      // If the columns are not found by name (different client naming),
-      // they are read by position from the end of the sheet:
-      //   ... BET EUR, NET EUR, Currency, BET, NET   (defaults 8,9,10,11,12)
+      // activates only when the sheet ends with Currency(10) + BET(11) + NET(12)
+      // and every row has the same NON-EUR 3-letter currency; otherwise stay in EUR
       SessionNative = ''; NativeBetIdx = -1; NativeNetIdx = -1;
       let colCount = (sumdata.columns || []).length;
-      let curCol = ci('currency') >= 0 ? ci('currency') : (colCount >= 13 ? colCount - 3 : -1);
-      let natBet = ci('bet') >= 0 ? ci('bet') : (colCount >= 12 ? colCount - 2 : -1);
-      let natNet = ci('net') >= 0 ? ci('net') : (colCount >= 13 ? colCount - 1 : -1);
-      if(curCol >= 0 && natBet >= 0 && natNet >= 0){
-        let dt0 = sumdata.data || [];
+      let dt0c = sumdata.data || [];
+      if(colCount >= 13){
+        let curCol = 10, natBet = 11, natNet = 12;
         let curPrev = '', curOk = true;
-        for(let kci = 0; kci < dt0.length; kci++){
-          let cv = String((dt0[kci][curCol] && dt0[kci][curCol].formattedValue) || '').trim().toUpperCase();
+        for(let kci = 0; kci < dt0c.length; kci++){
+          let cv = String((dt0c[kci][curCol] && dt0c[kci][curCol].formattedValue) || '').trim().toUpperCase();
           if(!cv){ continue; }
-          // a currency value must look like a currency code (3 letters) —
-          // protects the positional fallback from picking a neighbouring column
+          // a currency cell must look like a 3-letter code - protects against
+          // the sheet not actually ending with Currency/BET/NET
           if(!/^[A-Z]{3}$/.test(cv)){ curOk = false; break; }
           if(!curPrev){ curPrev = cv; }
           else if(cv !== curPrev){ curOk = false; break; }
         }
-        // native mode activates only for a consistent NON-EUR currency;
-        // EUR sessions (the default layout) always read BET EUR / NET EUR
         if(curOk && curPrev && curPrev !== 'EUR'){
           SessionNative = curPrev; NativeBetIdx = natBet; NativeNetIdx = natNet;
         }
       }
+      console.log('HELPER money columns: BET EUR idx 8, NET EUR idx 9, columns ' + colCount + ', native ' + (SessionNative || '(EUR)')
+      );
+
+
 
            let RoundSkipp = 0;
            let ShortBreak = 0;
