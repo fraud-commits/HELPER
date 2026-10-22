@@ -554,8 +554,8 @@ function drawChartJS() {
         if(nByName >= 0 && colNumericOk(nByName)){ NetEUR = nByName; }
       }
       let names55 = [];
-      for(let nI = 7; nI < Math.min(colCount, 14); nI++){
-        names55.push(nI + ':' + String((SumCols[nI] && SumCols[nI].fieldName) || '').toLowerCase().slice(0, 12));
+      for(let nI = 0; nI < Math.min(colCount, 16); nI++){
+        names55.push(nI + ':' + String((SumCols[nI] && SumCols[nI].fieldName) || '').toLowerCase().replace(/sum\(|\)/g, '').replace(/[^a-z0-9]+/g, ' ').trim().slice(0, 14));
       }
       let badge = 'cols=' + colCount + ' · beteur=' + BetEUR + ' · neteur=' + NetEUR + (SessionNative ? ' · native=' + SessionNative : '') + ' · ' + names55.join(' ');
       if(BetBad && BetEUR === 8){ badge += ' · BetEUR✗'; }
