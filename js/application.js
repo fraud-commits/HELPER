@@ -1072,10 +1072,7 @@ function BreakCounter(){
     // tooltip data for the heat-map square: between which rounds the gap is
     let gapMeta = fmtGap(gap) + ' · ' + gapType
                 + (gapEst > 0 ? ' (~' + gapEst + ' rounds missed)' : '');
-    // a skip that hides several missed rounds shows the estimated count inside
-    // the square, so "1 skip" is not silently read as "1 missed round"
-    let sqLabel = (gapType === 'SKIP' && gapEst > 1) ? String(gapEst) : '';
-    $('.break-Heat-Map').append('<div class="badge-sqr ' + gapClass + ' hmap-tip" data-from="' + prevValid.r.RoundId + '" data-to="' + sorted[i].r.RoundId + '" data-meta="' + gapMeta.replace(/"/g, '&quot;') + '">' + sqLabel + '</div>');
+    $('.break-Heat-Map').append('<div class="badge-sqr ' + gapClass + ' hmap-tip" data-from="' + prevValid.r.RoundId + '" data-to="' + sorted[i].r.RoundId + '" data-meta="' + gapMeta.replace(/"/g, '&quot;') + '"></div>');
 
     prevValid = sorted[i];
   }

@@ -308,13 +308,6 @@ margin: 1px;
     display: inline-block;
   }
 
-  /* estimated missed-round count shown inside a skip square (heat map only) */
-  .Break-Heat-Map .badge-sqr{
-    font-size: 9px;
-    line-height: 13px;
-    overflow: hidden;
-  }
-
   .badge-sql-c{
     background-color: var(--heat-seq) !important;
   }
