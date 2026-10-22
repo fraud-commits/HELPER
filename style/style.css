@@ -907,6 +907,25 @@ body.dark .badge-long-c{ background-color: #B03A44 !important; }
   cursor: pointer;
   line-height: 1.4;
 }
+/* both EUR/native currency chips (header + Financial analysis card) */
+.theme-toggle.cur-native{
+  background: var(--mint);
+  color: var(--brand-ink);
+  border-color: var(--brand);
+}
+.theme-toggle:disabled{
+  opacity: .55;
+  cursor: default;
+}
+.theme-toggle:disabled:hover{
+  background: transparent;
+  color: var(--muted);
+  border-color: var(--line-2);
+}
+/* second chip sits in the Financial analysis card header */
+#currency-toggle-2{
+  margin-left: 10px;
+}
 .theme-toggle:hover{
   background: var(--mint);
   color: var(--brand-ink);

@@ -43,6 +43,7 @@ function initTheme(){
 }
 initTheme();
 $(document).off('click.curtoggle', '#currency-toggle, #currency-toggle-2').on('click.curtoggle', '#currency-toggle, #currency-toggle-2', function(){
+  $(this).blur(); // no stuck focus highlight on the chip
   MoneyMode = (MoneyMode === 'native') ? 'eur' : 'native';
   drawChartJS(); // full re-render in the selected currency
 });
@@ -576,10 +577,10 @@ function drawChartJS() {
       if($curBtn.length){
         if(SessionNative){
           let curTxt = (MoneyMode === 'native') ? SessionNative : (String.fromCharCode(8364) + ' EUR');
-          $curBtn.show().text(curTxt).prop('disabled', false).css('opacity', '');
+          $curBtn.show().text(curTxt).prop('disabled', false).toggleClass('cur-native', MoneyMode === 'native');
           $curBtn[0].title = 'Switch dashboard currency: EUR <-> ' + SessionNative;
         }else{
-          $curBtn.show().text(String.fromCharCode(8364) + ' EUR').prop('disabled', true).css('opacity', 0.55);
+          $curBtn.show().text(String.fromCharCode(8364) + ' EUR').prop('disabled', true).removeClass('cur-native');
           $curBtn[0].title = 'Native currency switch: needs Currency + BET/NET columns and one consistent NON-EUR currency for the whole session';
         }
       }
