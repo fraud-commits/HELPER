@@ -42,6 +42,10 @@ function initTheme(){
   applyTheme(mode, false);
 }
 initTheme();
+$(document).off('click.curtoggle', '#currency-toggle').on('click.curtoggle', '#currency-toggle', function(){
+  MoneyMode = (MoneyMode === 'native') ? 'eur' : 'native';
+  drawChartJS(); // full re-render in the selected currency
+});
 $(document).off('click.themetoggle', '#theme-toggle').on('click.themetoggle', '#theme-toggle', function(){
   applyTheme(document.body.classList.contains('dark') ? 'light' : 'dark');
   drawChartJS(); // re-render so canvas colors follow the theme
@@ -84,6 +88,10 @@ function currencyLabel(code){
 let SessionNative = '';   // detected native currency code for the session, '' = none/EUR
 let NativeBetIdx = -1;    // summary column index of native BET (when usable)
 let NativeNetIdx = -1;    // summary column index of native NET (when usable)
+
+// whole-dashboard currency mode: 'eur' (default) | 'native' (header switch)
+let MoneyMode = 'eur';
+let MoneyModeCur = '';    // native code the current mode was set for (resets on currency change)
 
 // Watchdog: if Tableau never answers with data (blocked extension, missing
 // sheet, unset filters), say so instead of leaving eternal zeros/dashes.
@@ -544,6 +552,26 @@ function drawChartJS() {
         $('.ext-version').append(' <span style="opacity:.55;font-size:10px">(' + badge + ')</span>');
       }catch(e){}
 
+      // ---- whole-dashboard currency switch (header button) ----
+      if(!SessionNative){ MoneyMode = 'eur'; MoneyModeCur = ''; }
+      else if(MoneyModeCur !== SessionNative){ MoneyModeCur = SessionNative; MoneyMode = 'eur'; }
+      let $curBtn = $('#currency-toggle');
+      if($curBtn.length){
+        if(SessionNative){
+          let curTxt = (MoneyMode === 'native') ? (currencyLabel(SessionNative) + ' ' + SessionNative) : String.fromCharCode(8364) + ' EUR';
+          $curBtn.show().text(curTxt);
+          $curBtn[0].title = 'Switch dashboard currency: EUR <-> ' + SessionNative;
+        }else{ $curBtn.hide(); }
+      }
+      // ---- display helpers for the active currency mode ----
+      function modeNative(){ return MoneyMode === 'native' && SessionNative && NativeBetIdx >= 0; }
+      function moneySym(){ return modeNative() ? currencyLabel(SessionNative) : String.fromCharCode(8364); }
+      function aggBet(e){ return modeNative() ? (e.NativeBet || 0) : e.TotalBet; }
+      function aggNet(e){ return modeNative() ? (e.NativeNet || 0) : e.TotalNet; }
+      function rBetM(e){ return modeNative() ? (e.NativeBet || 0) : e.TotalRoundBet; }
+      function rNetM(e){ return modeNative() ? (e.NativeNet || 0) : e.TotalRoundNet; }
+      function baseBetM(e){ return modeNative() ? (e.BaseNative > 0 ? e.BaseNative : (e.NativeBet || 0)) : (e.BaseBet > 0 ? e.BaseBet : e.TotalRoundBet); }
+
 
 
            let RoundSkipp = 0;
@@ -555,7 +583,9 @@ function drawChartJS() {
                indexNext;
           
            let TotalBet = 0;
+let NativeTotalBet = 0;
            let TotalNet = 0;
+let NativeTotalNet = 0;
 
            let RoundArry= [];
            let RoundArry2= [];
@@ -673,6 +703,10 @@ Trigger();
 //Tableau Bet and Net messure Sum
    TotalBet += numv(worksheetData[indexStart], BetEUR);
    TotalNet += numv(worksheetData[indexStart], NetEUR);
+   if(NativeBetIdx >= 0){
+     NativeTotalBet += numv(worksheetData[indexStart], NativeBetIdx);
+     NativeTotalNet += numv(worksheetData[indexStart], NativeNetIdx);
+   }
 
   }
 
@@ -685,8 +719,8 @@ Trigger();
     return (typeof v === 'number' && v < 0) ? '<span class="neg-val">' + txt + '</span>' : txt;
   }
 
-  $('.Totalbet').text("€ " + fmtNum(TotalBet));
-  $('.Totalnet').text("€ " + fmtNum(TotalNet)).toggleClass('neg-val', TotalNet < 0);
+  $('.Totalbet').text(moneySym() + " " + fmtNum(modeNative() ? NativeTotalBet : TotalBet));
+  $('.Totalnet').text(moneySym() + " " + fmtNum(modeNative() ? NativeTotalNet : TotalNet)).toggleClass('neg-val', (modeNative() ? NativeTotalNet : TotalNet) < 0);
   // session margin bar encodes RISK, not the sign: teal in the normal band,
   // neutral grey when the player loses (casino profits — nothing to flag),
   // red only when abnormally high (>= 50%, worth attention);
@@ -773,6 +807,7 @@ function RoundTotla(indexStart,indexNext){
       RoundId: worksheetData[indexStart][RoundID].formattedValue,
       TotalRoundBet: 0,
       BaseBet: 0, // hand stake without in-game actions (blackjack double/split/insurance)
+      NativeBet: 0, NativeNet: 0, BaseNative: 0, // native-currency mirrors
       TotalRoundNet:0,
       DealerName: worksheetData[indexStart][DealerName].formattedValue,
       TableName: worksheetData[indexStart][TableName].formattedValue,
@@ -788,7 +823,9 @@ function RoundTotla(indexStart,indexNext){
     DealerArry.push({
       DealerName: worksheetData[indexStart][DealerName].formattedValue,
       TotalBet: 0,
+      NativeBet: 0,
       TotalNet:0,
+      NativeNet: 0,
       RoundCount :0
 
     })
@@ -814,7 +851,9 @@ function RoundTotla(indexStart,indexNext){
       BetPosition: bpName,
       GameType: bpGame,
       TotalBet: 0,
+      NativeBet: 0,
       TotalNet:0,
+      NativeNet: 0,
       RoundCount :0,
       Category: betCategory(bpGame, bpName)
 
@@ -826,7 +865,9 @@ function RoundTotla(indexStart,indexNext){
     TableArry.push({
       TableName: worksheetData[indexStart][TableName].formattedValue,
       TotalBet: 0,
+      NativeBet: 0,
       TotalNet: 0,
+      NativeNet: 0,
       RoundCount: 0
     })
   }
@@ -847,6 +888,7 @@ function RoundTotla(indexStart,indexNext){
     // those are hand decisions, not staking decisions, so progression uses BaseBet
     if(!isHandAction(worksheetData[indexStart][GameType].formattedValue, worksheetData[indexStart][BetPosition].formattedValue)){
       element.BaseBet += numv(worksheetData[indexStart], BetEUR);
+      if(NativeBetIdx >= 0){ element.BaseNative = (element.BaseNative || 0) + numv(worksheetData[indexStart], NativeBetIdx); }
     }
     // per-round bet-position set (roulette layout coverage analysis)
     if(!element.Positions){ element.Positions = {}; }
@@ -857,6 +899,10 @@ let element2 = DealerArry.find(e => e.DealerName === worksheetData[indexStart][D
 if (element2 ) {
   element2.TotalBet += numv(worksheetData[indexStart], BetEUR);
   element2.TotalNet += numv(worksheetData[indexStart], NetEUR);
+  if(NativeBetIdx >= 0){
+    element2.NativeBet = (element2.NativeBet || 0) + numv(worksheetData[indexStart], NativeBetIdx);
+    element2.NativeNet = (element2.NativeNet || 0) + numv(worksheetData[indexStart], NativeNetIdx);
+  }
 
 }
 
@@ -865,12 +911,20 @@ let element4 = TableArry.find(e => e.TableName === worksheetData[indexStart][Tab
 if (element4) {
   element4.TotalBet += numv(worksheetData[indexStart], BetEUR);
   element4.TotalNet += numv(worksheetData[indexStart], NetEUR);
+  if(NativeBetIdx >= 0){
+    element4.NativeBet = (element4.NativeBet || 0) + numv(worksheetData[indexStart], NativeBetIdx);
+    element4.NativeNet = (element4.NativeNet || 0) + numv(worksheetData[indexStart], NativeNetIdx);
+  }
 }
 
 let element3 = BetPositionArry.find(e => e.BetPosition === worksheetData[indexStart][BetPosition].formattedValue && e.GameType === worksheetData[indexStart][GameType].formattedValue);
 if (element3 ) {
   element3.TotalBet += numv(worksheetData[indexStart], BetEUR);
   element3.TotalNet += numv(worksheetData[indexStart], NetEUR);
+  if(NativeBetIdx >= 0){
+    element3.NativeBet = (element3.NativeBet || 0) + numv(worksheetData[indexStart], NativeBetIdx);
+    element3.NativeNet = (element3.NativeNet || 0) + numv(worksheetData[indexStart], NativeNetIdx);
+  }
   element3.RoundCount += 1;
   element3.Category = betCategory(worksheetData[indexStart][GameType].formattedValue, worksheetData[indexStart][BetPosition].formattedValue);
  
@@ -1453,8 +1507,8 @@ if (element ) {
     $(".DealerTop").append(`
     <tr>
       <td>` + DealerArry[i].DealerName + `</td>
-      <td>` + fmtNum(DealerArry[i].TotalBet) + `</td>
-      <td` + negClass(DealerArry[i].TotalNet) + `>` + fmtNum(DealerArry[i].TotalNet) + `</td>
+      <td>` + fmtNum(aggBet(DealerArry[i])) + `</td>
+      <td` + negClass(DealerArry[i].TotalNet) + `>` + fmtNum(aggNet(DealerArry[i])) + `</td>
       <td>`+ DealerArry[i].RoundCount +` </td>
       <td` + negClass(DealerArry[i].TotalNet) + `>`+ fmtNum(DealerArry[i].TotalBet > 0 ? DealerArry[i].TotalNet / DealerArry[i].TotalBet * 100 : 0) +` % </td>
       </tr>
@@ -1469,8 +1523,8 @@ if (element ) {
     $(".TableTop").append(`
     <tr>
       <td>` + TableArry[i].TableName + `</td>
-      <td>` + fmtNum(TableArry[i].TotalBet) + `</td>
-      <td` + negClass(TableArry[i].TotalNet) + `>` + fmtNum(TableArry[i].TotalNet) + `</td>
+      <td>` + fmtNum(aggBet(TableArry[i])) + `</td>
+      <td` + negClass(TableArry[i].TotalNet) + `>` + fmtNum(aggNet(TableArry[i])) + `</td>
       <td>`+ TableArry[i].RoundCount +` </td>
       <td` + negClass(TableArry[i].TotalNet) + `>`+ fmtNum(TableArry[i].TotalBet > 0 ? TableArry[i].TotalNet / TableArry[i].TotalBet * 100 : 0) +` % </td>
       </tr>
@@ -1488,7 +1542,9 @@ if (element ) {
       GameTypeArry.push(el);
     }
     el.TotalBet += RoundArry[i].TotalRoundBet;
+    el.NativeBet = (el.NativeBet || 0) + rBetM(RoundArry[i]);
     el.TotalNet += RoundArry[i].TotalRoundNet;
+    el.NativeNet = (el.NativeNet || 0) + rNetM(RoundArry[i]);
     el.RoundCount += 1;
   }
   // default order: Net descending
@@ -1497,8 +1553,8 @@ if (element ) {
     $(".GameTypeTop").append(`
     <tr>
       <td>` + GameTypeArry[i].GameType + `</td>
-      <td>` + fmtNum(GameTypeArry[i].TotalBet) + `</td>
-      <td` + negClass(GameTypeArry[i].TotalNet) + `>` + fmtNum(GameTypeArry[i].TotalNet) + `</td>
+      <td>` + fmtNum(aggBet(GameTypeArry[i])) + `</td>
+      <td` + negClass(GameTypeArry[i].TotalNet) + `>` + fmtNum(aggNet(GameTypeArry[i])) + `</td>
       <td>`+ GameTypeArry[i].RoundCount +` </td>
       <td` + negClass(GameTypeArry[i].TotalNet) + `>`+ fmtNum(GameTypeArry[i].TotalBet > 0 ? GameTypeArry[i].TotalNet / GameTypeArry[i].TotalBet * 100 : 0) +` % </td>
       </tr>
@@ -1520,8 +1576,8 @@ function RoundTop(x){
   $(".RoundTop").append(`
   <tr` + gapTitle + `>
     <td>` + RoundArry[x].RoundId + `</td>
-    <td>` + fmtNum(RoundArry[x].TotalRoundBet) + `</td>
-    <td` + negClass(RoundArry[x].TotalRoundNet) + `>` + fmtNum(RoundArry[x].TotalRoundNet) + `</td>
+    <td>` + fmtNum(rBetM(RoundArry[x])) + `</td>
+    <td` + negClass(RoundArry[x].TotalRoundNet) + `>` + fmtNum(rNetM(RoundArry[x])) + `</td>
     <td` + negClass(RoundArry[x].TotalRoundNet) + `>`+ fmtNum(RoundArry[x].TotalRoundBet > 0 ? RoundArry[x].TotalRoundNet / RoundArry[x].TotalRoundBet * 100 : 0) +` % </td>
     </tr>
     `
@@ -1568,14 +1624,14 @@ function BetPositionTop(){
     rows += (`
       <tr>
                                           <td>` + e.BetPosition + `</td>
-                                            <td>` + fmtNum(e.TotalBet) + `</td>
-                                                <td` + negClass(e.TotalNet) + `>` + fmtNum(e.TotalNet) + `</td>
+                                            <td>` + fmtNum(aggBet(e)) + `</td>
+                                                <td` + negClass(e.TotalNet) + `>` + fmtNum(aggNet(e)) + `</td>
                                                 <td` + negClass(e.TotalNet) + `>` + fmtNum(e.TotalBet > 0 ? e.TotalNet / e.TotalBet * 100 : 0) + ` % </td>
                                                 <td>` + e.RoundCount + `</td>
                                                 <td>` + e.Category + `</td>
                                             </tr>
     `);
-    tBet += e.TotalBet; tNet += e.TotalNet; tCnt += e.RoundCount;
+    tBet += aggBet(e); tNet += aggNet(e); tCnt += e.RoundCount;
   }
   $(".BetPosTop").html(rows);
 
@@ -1664,7 +1720,9 @@ function generateFindings(){
   let rounds   = RoundArry.length;
   let decided  = WinRoundCnt + LossRoundCnt; // rounds without ties
   let effWin   = decided > 0 ? WinRoundCnt / decided * 100 : 0;
-  let avgBet   = rounds  > 0 ? TotalBet / rounds : 0;
+  let mTotalBet  = modeNative() ? NativeTotalBet : TotalBet;
+  let mTotalNet  = modeNative() ? NativeTotalNet : TotalNet;
+  let avgBet   = rounds  > 0 ? mTotalBet / rounds : 0;
   let maxRound = null;
 
   // ---- roulette layout coverage (computed early: it explains a high win rate) ----
@@ -1684,13 +1742,13 @@ function generateFindings(){
   }
 
   for(let i = 0; i < rounds; i++){
-    if(maxRound === null || RoundArry[i].TotalRoundBet > maxRound.TotalRoundBet){
+    if(maxRound === null || rBetM(RoundArry[i]) > rBetM(maxRound)){
       maxRound = RoundArry[i];
     }
   }
 
   function eur(v){
-    return '€' + fmtNum(Math.abs(v));
+    return moneySym() + fmtNum(Math.abs(v));
   }
   function pct(part, total){
     return total > 0 ? part / total * 100 : 0;
@@ -1720,7 +1778,7 @@ function generateFindings(){
   // ---- 2. Session result: profit alone is routine — flag it only from €50k ----
   if(TotalNet >= 50000){
     let lvl = (effWin >= 55 && decided >= 20) ? 'danger' : 'warning';
-    add(lvl, '<b>Player finished in profit:</b> +' + eur(TotalNet) + ' (margin +' + fmtNum(Margin) + '%).');
+    add(lvl, '<b>Player finished in profit:</b> +' + eur(mTotalNet) + ' (margin +' + fmtNum(Margin) + '%).');
   }
 
   // ---- 2b. Profit concentration: top-3 wins share of gross winnings (luck vs edge) ----
@@ -1746,9 +1804,9 @@ function generateFindings(){
   let negPct    = pct(negativ + martingeil, rounds);
   let upPct     = pct(up, rounds);
 
-  if(rounds >= 5 && maxRound && avgBet > 0 && maxRound.TotalRoundBet >= 3 * avgBet){
-    add('warning', '<b>Bet ramp:</b> sudden sharp bet increase up to ' + eur(maxRound.TotalRoundBet) +
-        ' (' + fmtNum(maxRound.TotalRoundBet / avgBet, 1) + '× the average, round ' + maxRound.RoundId +
+  if(rounds >= 5 && maxRound && avgBet > 0 && rBetM(maxRound) >= 3 * avgBet){
+    add('warning', '<b>Bet ramp:</b> sudden sharp bet increase up to ' + eur(rBetM(maxRound)) +
+        ' (' + fmtNum(rBetM(maxRound) / avgBet, 1) + '× the average, round ' + maxRound.RoundId +
         ') — may indicate advantage play.');
   }
   // erratic = both systems strongly present with no clear dominance
@@ -1854,7 +1912,7 @@ function generateFindings(){
     }
     if(topNet.TotalNet > 0 && othersLosing >= DealerArry.length - 1 && DealerArry.length >= 3){
       add(effWin >= 55 ? 'danger' : 'warning',
-          '<b>Dealer pattern:</b> player profits only with dealer ' + topNet.DealerName + ' (+' + eur(topNet.TotalNet) +
+          '<b>Dealer pattern:</b> player profits only with dealer ' + topNet.DealerName + ' (+' + eur(aggNet(topNet)) +
           '), losing with all other dealers — prioritize video review (possible predictability or collusion).');
     }
     // 7b. Single dealer coverage with profit
@@ -1865,7 +1923,7 @@ function generateFindings(){
     let share = pct(topCnt.RoundCount, rounds);
     if(share >= 50 && topCnt.TotalNet > 0 && DealerArry.length < 3){
       add('warning', '<b>Dealer concentration:</b> ' + fmtNum(share, 0) + '% of rounds with dealer ' +
-          topCnt.DealerName + ', player net +' + eur(topCnt.TotalNet) + ' with them.');
+          topCnt.DealerName + ', player net +' + eur(aggNet(topCnt)) + ' with them.');
     }
     // 7c. Frequent dealer switching (manual: "plays only 1-2 hands per dealer")
     if(rounds / DealerArry.length <= 2.5 && DealerArry.length >= 6){
@@ -2086,7 +2144,7 @@ function computeWinnerAnswers(){
 
   let p = function(v){ return rounds > 0 ? v / rounds * 100 : 0; };
   function eur(v){
-    return '€' + fmtNum(Math.abs(v));
+    return moneySym() + fmtNum(Math.abs(v));
   }
 
   // ---------- Betting progression (exact report options) ----------
@@ -2179,7 +2237,7 @@ function computeWinnerAnswers(){
   // This block mirrors the Winner report. When the session has one consistent
   // native currency (≠ EUR) with native BET/NET columns in the sheet, values are
   // shown in that native currency; everything else on the dashboard stays in EUR.
-  let useNative = !!SessionNative && NativeBetIdx >= 0;
+  let useNative = modeNative();
   let repCur = useNative ? currencyLabel(SessionNative) : '€';
   function repEur(v){ return repCur + fmtNum(Math.abs(v)); }
   function rBet(e){ return (useNative && e.NativeBet !== undefined) ? e.NativeBet : e.TotalRoundBet; }
@@ -2372,8 +2430,8 @@ function chartCanvasHTML(){
 
 function renderBetChart(){
   let showNet = (typeof ChartMode !== 'undefined') && ChartMode === 'net';
-  let chartLabel = showNet ? 'Net Amount (€)' : 'Bet Amount (€)';
-  let chartData = RoundArry.map(function(a){ return showNet ? a.TotalRoundNet : a.TotalRoundBet; });
+  let chartLabel = showNet ? 'Net Amount (' + moneySym() + ')' : 'Bet Amount (' + moneySym() + ')';
+  let chartData = RoundArry.map(function(a){ return showNet ? rNetM(a) : rBetM(a); });
   if(document.getElementById('chart-title')){
     document.getElementById('chart-title').textContent = showNet ? 'Net Amount Chart' : 'Bet Amount Chart';
   }
@@ -2442,8 +2500,8 @@ betChart = new Chart(document.getElementById("bar-chart"), {
                     label: function (tooltipItem) {
                         let index = tooltipItem.dataIndex;
                         let roundId = RoundArry[index].RoundId;
-                        let totalBet = fmtNum(RoundArry[index].TotalRoundBet);
-                        let totalNet = fmtNum(RoundArry[index].TotalRoundNet);
+                        let totalBet = fmtNum(rBetM(RoundArry[index]));
+                        let totalNet = fmtNum(rNetM(RoundArry[index]));
 
                         return [
                             `Round ID: ${roundId}`,
@@ -2496,7 +2554,7 @@ function chartTipShow(clientX, clientY, round){
   if(chartTipFor !== round.RoundId){
     tip.html(
       '<div class="gap-tip-ids">Round <span class="gap-copy" data-round="' + String(round.RoundId).replace(/"/g, '&quot;') + '">' + round.RoundId + '</span></div>' +
-      '<div class="gap-tip-meta">Bet &euro;' + fmtNum(round.TotalRoundBet) + ' &middot; Net &euro;' + fmtNum(round.TotalRoundNet) + '</div>'
+      '<div class="gap-tip-meta">Bet ' + moneySym() + fmtNum(rBetM(round)) + ' &middot; Net ' + moneySym() + fmtNum(rNetM(round)) + '</div>'
     );
     chartTipFor = round.RoundId;
   }
