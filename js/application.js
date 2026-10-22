@@ -2027,21 +2027,24 @@ function computeWinnerAnswers(){
   answers.push({group: 'Report dropdowns', field: 'Betting progression', value: prog, why: progWhy});
 
   // ---------- Bet continuity (exact report options) ----------
-  // Skip share by ESTIMATED skipped game rounds (time-based), not just gap count
-  let skipShare = (RoundSkipp > 0) ? EstSkippedRounds / (rounds + EstSkippedRounds) * 100 : 0;
+  // A skip counts as a skip — one gap = one skip, however many rounds the gap
+  // hides (the est. missed count is secondary info, shown in the why-line/tooltip)
+  let skipShare = (RoundSkipp > 0) ? RoundSkipp / rounds * 100 : 0;
   let cont;
   if(rounds == 1){ cont = 'Only one game round held'; }
   else if(rounds <= 4){ cont = 'Held only few game rounds'; }
   else if(rounds <= 10){ cont = RoundSkipp == 0 ? 'Short session, without skipping game rounds' : 'Short session, not many games in a row'; }
   else if(skipShare == 0){ cont = rounds >= 30 ? 'Plays many rounds in a row without skipping rounds' : 'Does not skip game rounds'; }
-  else if(skipShare <= 5){ cont = rounds >= 30 ? 'Many sequential games, however, at some passages skips rounds' : 'Sequential games, however, skips rounds from time to time'; }
-  else if(skipShare <= 15){ cont = 'Mainly sequential games, however at some passages skips rounds'; }
+  else if(RoundSkipp == 1){ cont = 'Mainly sequential games, one skip during the session'; }
+  else if(skipShare <= 5){ cont = 'Mainly sequential games, occasional skips'; }
+  else if(skipShare <= 15){ cont = 'Sequential games, however at some passages skips rounds'; }
   else if(skipShare <= 40){ cont = 'Skips rounds time to time'; }
   else{ cont = 'Often skips rounds'; }
   let contWhy;
   if(rounds == 1){ contWhy = 'only 1 round in the session'; }
   else if(RoundSkipp == 0){ contWhy = rounds + ' played rounds, no skip gaps (' + currentBreakRules().SKIP_MIN + '–' + currentBreakRules().SKIP_MAX + ' min)'; }
-  else{ contWhy = 'est. ' + EstSkippedRounds + ' skipped of ' + (rounds + EstSkippedRounds) + ' (' + fmtNum(skipShare, 0) + '%) in ' + RoundSkipp + ' skip gap(s)'; }
+  else{ contWhy = RoundSkipp + ' skip gap(s) of ' + rounds + ' played rounds (' + fmtNum(skipShare, 0) + '%)' +
+        (EstSkippedRounds > 0 ? ' · est. ~' + EstSkippedRounds + ' rounds missed' : ''); }
   answers.push({group: 'Report dropdowns', field: 'Bet continuity', value: cont, why: contWhy});
 
   // ---------- Breaks during analysis (exact report options) ----------
