@@ -474,9 +474,10 @@ function drawChartJS() {
       let natBet = ci('bet') >= 0 ? ci('bet') : (colCount >= 12 ? colCount - 2 : -1);
       let natNet = ci('net') >= 0 ? ci('net') : (colCount >= 13 ? colCount - 1 : -1);
       if(curCol >= 0 && natBet >= 0 && natNet >= 0){
+        let dt0 = sumdata.data || [];
         let curPrev = '', curOk = true;
-        for(let kci = 0; kci < worksheetData.length; kci++){
-          let cv = String((worksheetData[kci][curCol] && worksheetData[kci][curCol].formattedValue) || '').trim().toUpperCase();
+        for(let kci = 0; kci < dt0.length; kci++){
+          let cv = String((dt0[kci][curCol] && dt0[kci][curCol].formattedValue) || '').trim().toUpperCase();
           if(!cv){ continue; }
           // a currency value must look like a currency code (3 letters) —
           // protects the positional fallback from picking a neighbouring column
