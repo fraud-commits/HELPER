@@ -615,7 +615,7 @@ function drawChartJS() {
       // ---- whole-dashboard currency switch (header button) ----
       // client exception: Ballys sessions are always reported in USD, so the
       // dashboard starts in the native currency for that client
-      let sheetClientLow = String((worksheet && worksheet.name) || '').toLowerCase();
+      let sheetClientLow = (String(ClientLabel || '') + ' ' + String((worksheet && worksheet.name) || '')).toLowerCase();
       if(!SessionNative){ MoneyMode = 'eur'; MoneyModeCur = ''; }
       else if(MoneyModeCur !== SessionNative){
         MoneyModeCur = SessionNative;
