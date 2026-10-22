@@ -1644,7 +1644,7 @@ function RoundTop(x){
 
   $(".RoundTop").append(`
   <tr` + gapTitle + `>
-    <td title="` + RoundArry[x].RoundId + `">` + shortRoundId(RoundArry[x].RoundId) + `</td>
+    <td>` + RoundArry[x].RoundId + `</td>
     <td>` + fmtNum(rBetM(RoundArry[x])) + `</td>
     <td` + negClass(RoundArry[x].TotalRoundNet) + `>` + fmtNum(rNetM(RoundArry[x])) + `</td>
     <td` + negClass(RoundArry[x].TotalRoundNet) + `>`+ fmtNum(RoundArry[x].TotalRoundBet > 0 ? RoundArry[x].TotalRoundNet / RoundArry[x].TotalRoundBet * 100 : 0) +` % </td>
