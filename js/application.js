@@ -81,6 +81,13 @@ function fmtNum(v, digits){
   return (neg ? '-' : '') + out;
 }
 
+// long round ids (uuid) don't fit the Round statistics column — show a short
+// form and keep the full value in the cell tooltip
+function shortRoundId(id){
+  let s = String(id || '');
+  return s.length > 14 ? s.slice(0, 8) + '…' + s.slice(-3) : s;
+}
+
 // ---- currency helpers ----
 // The dashboard shows EUR by default; the "Financial analysis from player's
 // perspective" block switches to the session's native currency (Currency +
@@ -574,8 +581,14 @@ function drawChartJS() {
       }catch(e){}
 
       // ---- whole-dashboard currency switch (header button) ----
+      // client exception: Ballys sessions are always reported in USD, so the
+      // dashboard starts in the native currency for that client
+      let sheetClientLow = String((worksheet && worksheet.name) || '').toLowerCase();
       if(!SessionNative){ MoneyMode = 'eur'; MoneyModeCur = ''; }
-      else if(MoneyModeCur !== SessionNative){ MoneyModeCur = SessionNative; MoneyMode = 'eur'; }
+      else if(MoneyModeCur !== SessionNative){
+        MoneyModeCur = SessionNative;
+        MoneyMode = (sheetClientLow.indexOf('ballys') >= 0 && SessionNative === 'USD') ? 'native' : 'eur';
+      }
       let $curBtn = $('#currency-toggle, #currency-toggle-2');
       if($curBtn.length){
         if(SessionNative){
@@ -1599,7 +1612,7 @@ function RoundTop(x){
 
   $(".RoundTop").append(`
   <tr` + gapTitle + `>
-    <td>` + RoundArry[x].RoundId + `</td>
+    <td title="` + RoundArry[x].RoundId + `">` + shortRoundId(RoundArry[x].RoundId) + `</td>
     <td>` + fmtNum(rBetM(RoundArry[x])) + `</td>
     <td` + negClass(RoundArry[x].TotalRoundNet) + `>` + fmtNum(rNetM(RoundArry[x])) + `</td>
     <td` + negClass(RoundArry[x].TotalRoundNet) + `>`+ fmtNum(RoundArry[x].TotalRoundBet > 0 ? RoundArry[x].TotalRoundNet / RoundArry[x].TotalRoundBet * 100 : 0) +` % </td>
