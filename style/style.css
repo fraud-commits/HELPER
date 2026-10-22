@@ -1186,6 +1186,13 @@ body.dark .badge-long-c{ background-color: #B03A44 !important; }
   white-space: normal;
   overflow-wrap: anywhere;
 }
+.dim-table{
+  table-layout: fixed;
+  width: 100% !important;
+}
+.dim-table th:first-child, .dim-table td:first-child{
+  width: 26% !important;
+}
 .table-roundTop tbody td:first-child{
   white-space: normal;
   word-break: break-all;
