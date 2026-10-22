@@ -443,20 +443,22 @@ function drawChartJS() {
      if ($.fn.DataTable.isDataTable('.table-roundTop')) { $('.table-roundTop').DataTable().clear().destroy(); }
      if ($.fn.DataTable.isDataTable('.table-bettop'))   { $('.table-bettop').DataTable().clear().destroy(); }
 
-           // ---- columns resolved by field name (any order); fixed fallback below ----
+           // ---- columns: everything by fixed index (column names differ per client),
+      // except BET / NET / BET EUR / NET EUR / Currency - the only universally
+      // consistent names, resolved by name with a fixed-index fallback ----
       function normCol(v){ return String(v || '').toLowerCase().replace(/[^a-z0-9]/g, ''); }
       let colBy = {};
       (sumdata.columns || []).forEach(function(c, i){ colBy[normCol(c.fieldName)] = i; });
       let ci = function(name){ return (colBy[name] !== undefined) ? colBy[name] : -1; };
 
-      const RoundTime = ci('secondoftimestamp') >= 0 ? ci('secondoftimestamp') : 0,
-            UserId = ci('playerid') >= 0 ? ci('playerid') : 5,
-            CompanyCode = ci('operatorname') >= 0 ? ci('operatorname') : 1,
-            RoundID = ci('roundid') >= 0 ? ci('roundid') : 2,
-            GameType = ci('gametype') >= 0 ? ci('gametype') : 4,
-            BetPosition = ci('betposition') >= 0 ? ci('betposition') : 7,
-            DealerName = ci('dealerid') >= 0 ? ci('dealerid') : 3,
-            TableName = ci('tableid') >= 0 ? ci('tableid') : 6,
+      const RoundTime = 0,
+            UserId = 5,
+            CompanyCode = 1,
+            RoundID = 2,
+            GameType = 4,
+            BetPosition = 7,
+            DealerName = 3,
+            TableName = 6,
             BetEUR = ci('beteur') >= 0 ? ci('beteur') : 8,
             NetEUR = ci('neteur') >= 0 ? ci('neteur') : 9;
 
