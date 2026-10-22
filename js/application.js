@@ -73,6 +73,18 @@ function fmtNum(v, digits){
   return (neg ? '-' : '') + out;
 }
 
+// ---- currency helpers ----
+// The dashboard shows EUR by default; the "Financial analysis from player's
+// perspective" block switches to the session's native currency (Currency +
+// native BET/NET columns in the sheet) when the session has one consistent one.
+function currencyLabel(code){
+  const m = { EUR:'€', USD:'$', GBP:'£', CAD:'C$', AUD:'A$', CHF:'CHF ', INR:'₹', TRY:'₺', ZAR:'R', KES:'KSh ', NGN:'₦', BRL:'R$', MXN:'MX$' };
+  return m[code] || (code + ' ');
+}
+let SessionNative = '';   // detected native currency code for the session, '' = none/EUR
+let NativeBetIdx = -1;    // summary column index of native BET (when usable)
+let NativeNetIdx = -1;    // summary column index of native NET (when usable)
+
 // Watchdog: if Tableau never answers with data (blocked extension, missing
 // sheet, unset filters), say so instead of leaving eternal zeros/dashes.
 let booted = false;
@@ -431,17 +443,42 @@ function drawChartJS() {
      if ($.fn.DataTable.isDataTable('.table-roundTop')) { $('.table-roundTop').DataTable().clear().destroy(); }
      if ($.fn.DataTable.isDataTable('.table-bettop'))   { $('.table-bettop').DataTable().clear().destroy(); }
 
-     const RoundTime = 0,
-           UserId = 5,
-           UserName= 6,
-           CompanyCode = 1;
-           RoundID = 2,
-           GameType = 4,
-           BetPosition = 7,
-           DealerName = 3,
-           TableName = 6,
-           BetEUR = 8,
-           NetEUR = 9;
+           // ---- columns resolved by field name (any order); fixed fallback below ----
+      function normCol(v){ return String(v || '').toLowerCase().replace(/[^a-z0-9]/g, ''); }
+      let colBy = {};
+      (sumdata.columns || []).forEach(function(c, i){ colBy[normCol(c.fieldName)] = i; });
+      let ci = function(name){ return (colBy[name] !== undefined) ? colBy[name] : -1; };
+
+      const RoundTime = ci('secondoftimestamp') >= 0 ? ci('secondoftimestamp') : 0,
+            UserId = ci('playerid') >= 0 ? ci('playerid') : 5,
+            CompanyCode = ci('operatorname') >= 0 ? ci('operatorname') : 1,
+            RoundID = ci('roundid') >= 0 ? ci('roundid') : 2,
+            GameType = ci('gametype') >= 0 ? ci('gametype') : 4,
+            BetPosition = ci('betposition') >= 0 ? ci('betposition') : 7,
+            DealerName = ci('dealerid') >= 0 ? ci('dealerid') : 3,
+            TableName = ci('tableid') >= 0 ? ci('tableid') : 6,
+            BetEUR = ci('beteur') >= 0 ? ci('beteur') : 8,
+            NetEUR = ci('neteur') >= 0 ? ci('neteur') : 9;
+
+      // ---- detect a consistent native currency for the session ----
+      // usable only when the sheet carries Currency + native BET + native NET
+      // and every row has the same non-EUR currency; otherwise stay in EUR
+      SessionNative = ''; NativeBetIdx = -1; NativeNetIdx = -1;
+      let curCol = ci('currency');
+      if(curCol >= 0){
+        let curPrev = '', curOk = true;
+        for(let kci = 0; kci < worksheetData.length; kci++){
+          let cv = String((worksheetData[kci][curCol] && worksheetData[kci][curCol].formattedValue) || '').trim();
+          if(!cv){ continue; }
+          if(!curPrev){ curPrev = cv; }
+          else if(cv !== curPrev){ curOk = false; break; }
+        }
+        let natBet = ci('bet'), natNet = ci('net');
+        if(curOk && curPrev && natBet >= 0 && natNet >= 0){
+          SessionNative = curPrev.toUpperCase();
+          NativeBetIdx = natBet; NativeNetIdx = natNet;
+        }
+      }
 
            let RoundSkipp = 0;
            let ShortBreak = 0;
@@ -734,6 +771,12 @@ function RoundTotla(indexStart,indexNext){
   if (element) {
     element.TotalRoundBet += worksheetData[indexStart][BetEUR].value;
     element.TotalRoundNet += worksheetData[indexStart][NetEUR].value;
+    // native per-round sums (used by the "Financial analysis" block when the
+    // session has one consistent non-EUR currency with native BET/NET in the sheet)
+    if(NativeBetIdx >= 0){
+      element.NativeBet = (element.NativeBet || 0) + worksheetData[indexStart][NativeBetIdx].value;
+      element.NativeNet = (element.NativeNet || 0) + worksheetData[indexStart][NativeNetIdx].value;
+    }
     // base hand stake excludes in-game actions (blackjack double/split/insurance) —
     // those are hand decisions, not staking decisions, so progression uses BaseBet
     if(!isHandAction(worksheetData[indexStart][GameType].formattedValue, worksheetData[indexStart][BetPosition].formattedValue)){
@@ -2067,14 +2110,22 @@ function computeWinnerAnswers(){
   answers.push({group: 'Report dropdowns', field: 'Breaks during analysis', value: br, why: brWhy});
 
   // ---------- Wager statistics (RoundArry already follows the global game scope) ----------
+  // This block mirrors the Winner report. When the session has one consistent
+  // native currency (≠ EUR) with native BET/NET columns in the sheet, values are
+  // shown in that native currency; everything else on the dashboard stays in EUR.
+  let useNative = !!SessionNative && NativeBetIdx >= 0;
+  let repCur = useNative ? currencyLabel(SessionNative) : '€';
+  function repEur(v){ return repCur + fmtNum(Math.abs(v)); }
+  function rBet(e){ return (useNative && e.NativeBet !== undefined) ? e.NativeBet : e.TotalRoundBet; }
+  function rNet(e){ return (useNative && e.NativeNet !== undefined) ? e.NativeNet : e.TotalRoundNet; }
   let scope = RoundArry;
   let sRounds = scope.length;
   let sTotalBet = 0, sTotalNet = 0, sWin = 0, sLoss = 0, sTie = 0;
   for(let si = 0; si < sRounds; si++){
-    sTotalBet += scope[si].TotalRoundBet;
-    sTotalNet += scope[si].TotalRoundNet;
-    if(scope[si].TotalRoundNet > 0){ sWin++; }
-    else if(scope[si].TotalRoundNet < 0){ sLoss++; }
+    sTotalBet += rBet(scope[si]);
+    sTotalNet += rNet(scope[si]);
+    if(rNet(scope[si]) > 0){ sWin++; }
+    else if(rNet(scope[si]) < 0){ sLoss++; }
     else{ sTie++; }
   }
   let sAvgBet = sRounds > 0 ? sTotalBet / sRounds : 0;
@@ -2082,23 +2133,23 @@ function computeWinnerAnswers(){
   let maxWager = 0, minWager = null;
   let winNets = [];
   for(let i = 0; i < sRounds; i++){
-    let b = scope[i].TotalRoundBet;
+    let b = rBet(scope[i]);
     if(b > maxWager){ maxWager = b; }
     if(minWager === null || b < minWager){ minWager = b; }
-    if(scope[i].TotalRoundNet > 0){ winNets.push(scope[i].TotalRoundNet); }
+    if(rNet(scope[i]) > 0){ winNets.push(rNet(scope[i])); }
   }
   if(minWager === null){ minWager = 0; }
 
   // "In how many rounds" column of the report
   let maxWagerRounds = 0, minWagerRounds = 0;
   for(let i = 0; i < sRounds; i++){
-    if(scope[i].TotalRoundBet === maxWager){ maxWagerRounds++; }
-    if(scope[i].TotalRoundBet === minWager){ minWagerRounds++; }
+    if(rBet(scope[i]) === maxWager){ maxWagerRounds++; }
+    if(rBet(scope[i]) === minWager){ minWagerRounds++; }
   }
 
-  answers.push({group: 'Wager statistics', field: 'Maximum round wager', value: eur(maxWager), note: 'in ' + maxWagerRounds + (maxWagerRounds === 1 ? ' round' : ' rounds')});
-  answers.push({group: 'Wager statistics', field: 'Minimum round wager', value: eur(minWager), note: 'in ' + minWagerRounds + (minWagerRounds === 1 ? ' round' : ' rounds')});
-  answers.push({group: 'Wager statistics', field: 'Average round wager', value: eur(sAvgBet)});
+  answers.push({group: 'Wager statistics', field: 'Maximum round wager', value: repEur(maxWager), note: 'in ' + maxWagerRounds + (maxWagerRounds === 1 ? ' round' : ' rounds')});
+  answers.push({group: 'Wager statistics', field: 'Minimum round wager', value: repEur(minWager), note: 'in ' + minWagerRounds + (minWagerRounds === 1 ? ' round' : ' rounds')});
+  answers.push({group: 'Wager statistics', field: 'Average round wager', value: repEur(sAvgBet)});
 
   // ---------- Winning statistics ----------
   let maxW = 0, minW = null, sumW = 0;
@@ -2123,12 +2174,12 @@ function computeWinnerAnswers(){
     if(winNets[i] === minW){ minWCount++; }
   }
 
-  answers.push({group: 'Winning statistics', field: 'Maximum round winning', value: eur(maxW), note: 'in ' + maxWCount + (maxWCount === 1 ? ' round' : ' rounds')});
-  answers.push({group: 'Winning statistics', field: 'Minimum round winning', value: eur(minW), note: 'in ' + minWCount + (minWCount === 1 ? ' round' : ' rounds')});
-  answers.push({group: 'Winning statistics', field: 'Average round winning', value: eur(winNets.length > 0 ? sumW / winNets.length : 0)});
-  answers.push({group: 'Winning statistics', field: 'Top 3 winnings share', value: eur(top3sum), note: fmtNum(top3share, 0) + '% of all winnings'});
+  answers.push({group: 'Winning statistics', field: 'Maximum round winning', value: repEur(maxW), note: 'in ' + maxWCount + (maxWCount === 1 ? ' round' : ' rounds')});
+  answers.push({group: 'Winning statistics', field: 'Minimum round winning', value: repEur(minW), note: 'in ' + minWCount + (minWCount === 1 ? ' round' : ' rounds')});
+  answers.push({group: 'Winning statistics', field: 'Average round winning', value: repEur(winNets.length > 0 ? sumW / winNets.length : 0)});
+  answers.push({group: 'Winning statistics', field: 'Top 3 winnings share', value: repEur(top3sum), note: fmtNum(top3share, 0) + '% of all winnings'});
   answers.push({group: 'Winning statistics', field: 'Average round result',
-                value: (sRounds > 0 && sTotalNet >= 0 ? '+' : (sRounds > 0 ? '-' : '')) + eur(sRounds > 0 ? sTotalNet / sRounds : 0),
+                value: (sRounds > 0 && sTotalNet >= 0 ? '+' : (sRounds > 0 ? '-' : '')) + repEur(sRounds > 0 ? sTotalNet / sRounds : 0),
                 neg: sRounds > 0 && sTotalNet < 0});
 
   // ---------- Rounds ----------
