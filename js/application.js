@@ -502,9 +502,10 @@ function drawChartJS() {
         for(let kci = 0; kci < dt0c.length; kci++){
           let cv = String((dt0c[kci][curCol] && dt0c[kci][curCol].formattedValue) || '').trim().toUpperCase();
           if(!cv){ continue; }
-          // a currency cell must look like a 3-letter code - protects against
-          // the sheet not actually ending with Currency/BET/NET
-          if(!/^[A-Z]{3}$/.test(cv)){ curOk = false; break; }
+          // a currency cell must look like a short code (USD, GEL, SS1…) —
+          // 2-6 alphanumeric chars containing letters; digits-only junk is
+          // rejected to protect against the sheet not ending with Currency/BET/NET
+          if(!/^[A-Z0-9]{2,6}$/.test(cv) || !/[A-Z]/.test(cv)){ curOk = false; break; }
           if(!curPrev){ curPrev = cv; }
           else if(cv !== curPrev){ curOk = false; break; }
         }
