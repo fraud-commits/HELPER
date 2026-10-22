@@ -476,7 +476,9 @@ function drawChartJS() {
           else if(cv !== curPrev){ curOk = false; break; }
         }
         let natBet = ci('bet'), natNet = ci('net');
-        if(curOk && curPrev && natBet >= 0 && natNet >= 0){
+        // native mode activates only for a consistent NON-EUR currency;
+        // EUR sessions (the default layout) always read BET EUR / NET EUR
+        if(curOk && curPrev && curPrev.toUpperCase() !== 'EUR' && natBet >= 0 && natNet >= 0){
           SessionNative = curPrev.toUpperCase();
           NativeBetIdx = natBet; NativeNetIdx = natNet;
         }
