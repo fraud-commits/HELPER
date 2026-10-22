@@ -42,7 +42,7 @@ function initTheme(){
   applyTheme(mode, false);
 }
 initTheme();
-$(document).off('click.curtoggle', '#currency-toggle').on('click.curtoggle', '#currency-toggle', function(){
+$(document).off('click.curtoggle', '#currency-toggle, #currency-toggle-2').on('click.curtoggle', '#currency-toggle, #currency-toggle-2', function(){
   MoneyMode = (MoneyMode === 'native') ? 'eur' : 'native';
   drawChartJS(); // full re-render in the selected currency
 });
@@ -565,16 +565,17 @@ function drawChartJS() {
       console.log('HELPER money shadow: ' + badge);
       console.log('HELPER sheet columns: ' + colList);
       try{
-        $('.ext-version').append(' <span style="opacity:.55;font-size:10px">(' + badge + ')</span>');
+        if(!$('#ext-diag').length){ $('.ext-version').after('<span id="ext-diag" style="opacity:.55;font-size:10px"></span>'); }
+        $('#ext-diag').text(' (' + badge + ')');
       }catch(e){}
 
       // ---- whole-dashboard currency switch (header button) ----
       if(!SessionNative){ MoneyMode = 'eur'; MoneyModeCur = ''; }
       else if(MoneyModeCur !== SessionNative){ MoneyModeCur = SessionNative; MoneyMode = 'eur'; }
-      let $curBtn = $('#currency-toggle');
+      let $curBtn = $('#currency-toggle, #currency-toggle-2');
       if($curBtn.length){
         if(SessionNative){
-          let curTxt = (MoneyMode === 'native') ? (currencyLabel(SessionNative) + ' ' + SessionNative) : String.fromCharCode(8364) + ' EUR';
+          let curTxt = (MoneyMode === 'native') ? SessionNative : (String.fromCharCode(8364) + ' EUR');
           $curBtn.show().text(curTxt).prop('disabled', false).css('opacity', '');
           $curBtn[0].title = 'Switch dashboard currency: EUR <-> ' + SessionNative;
         }else{
