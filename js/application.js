@@ -474,7 +474,19 @@ function drawChartJS() {
       let colCount = SumCols.length;
       let dt0c = sumdata.data || [];
       if(colCount >= 13){
-        let curCol = 10, natBet = 11, natNet = 12;
+        function findExactName(rex){
+          for(let i = 0; i < colCount; i++){
+            let fn = normName(SumCols[i] && SumCols[i].fieldName);
+            if(rex.test(fn)){ return i; }
+          }
+          return -1;
+        }
+        let curCol = findExactName(/^(sum)?currency$/);
+        if(curCol === -1){ curCol = 10; }
+        let natBet = findExactName(/^(sum)?bet$/);
+        if(natBet === -1){ natBet = 11; }
+        let natNet = findExactName(/^(sum)?net$/);
+        if(natNet === -1){ natNet = 12; }
         let curPrev = '', curOk = true;
         for(let kci = 0; kci < dt0c.length; kci++){
           let cv = String((dt0c[kci][curCol] && dt0c[kci][curCol].formattedValue) || '').trim().toUpperCase();
@@ -540,7 +552,11 @@ function drawChartJS() {
         if(bByName >= 0 && colNumericOk(bByName)){ BetEUR = bByName; }
         if(nByName >= 0 && colNumericOk(nByName)){ NetEUR = nByName; }
       }
-      let badge = 'cols=' + colCount + ' · beteur=' + BetEUR + ' · neteur=' + NetEUR + (SessionNative ? ' · native=' + SessionNative : '');
+      let names55 = [];
+      for(let nI = 7; nI < Math.min(colCount, 14); nI++){
+        names55.push(nI + ':' + String((SumCols[nI] && SumCols[nI].fieldName) || '').toLowerCase().slice(0, 12));
+      }
+      let badge = 'cols=' + colCount + ' · beteur=' + BetEUR + ' · neteur=' + NetEUR + (SessionNative ? ' · native=' + SessionNative : '') + ' · ' + names55.join(' ');
       if(BetBad && BetEUR === 8){ badge += ' · BetEUR✗'; }
       if(NetBad && NetEUR === 9){ badge += ' · NetEUR✗'; }
       let colList = SumCols.slice(0, 16).map(function(c, i){
@@ -559,9 +575,12 @@ function drawChartJS() {
       if($curBtn.length){
         if(SessionNative){
           let curTxt = (MoneyMode === 'native') ? (currencyLabel(SessionNative) + ' ' + SessionNative) : String.fromCharCode(8364) + ' EUR';
-          $curBtn.show().text(curTxt);
+          $curBtn.show().text(curTxt).prop('disabled', false).css('opacity', '');
           $curBtn[0].title = 'Switch dashboard currency: EUR <-> ' + SessionNative;
-        }else{ $curBtn.hide(); }
+        }else{
+          $curBtn.show().text(String.fromCharCode(8364) + ' EUR').prop('disabled', true).css('opacity', 0.55);
+          $curBtn[0].title = 'Native currency switch: needs Currency + BET/NET columns and one consistent NON-EUR currency for the whole session';
+        }
       }
       // ---- display helpers for the active currency mode ----
       function modeNative(){ return MoneyMode === 'native' && SessionNative && NativeBetIdx >= 0; }
