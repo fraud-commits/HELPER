@@ -1176,3 +1176,6 @@ body.dark .badge-long-c{ background-color: #B03A44 !important; }
 .margin-track { position: relative; height: 6px; background: var(--track-bg); border: 1px solid var(--line); border-radius: 3px; overflow: hidden; }
 .margin-zero { position: absolute; left: 50%; top: 0; bottom: 0; width: 3px; margin-left: -1.5px; background: var(--muted); }
 .margin-fill { position: absolute; top: 0; bottom: 0; }
+
+/* round id cells are clickable — click copies the full id */
+.table-roundTop tbody td:first-child{ cursor: pointer; }

@@ -82,11 +82,42 @@ function fmtNum(v, digits){
 }
 
 // long round ids (uuid) don't fit the Round statistics column — show a short
-// form and keep the full value in the cell tooltip
+// form and keep the full value in the cell tooltip; clicking the cell copies
+// the full id to the clipboard (the tooltip alone can't be copied)
 function shortRoundId(id){
   let s = String(id || '');
   return s.length > 14 ? s.slice(0, 8) + '…' + s.slice(-3) : s;
 }
+function copyPlainText(txt, done){
+  try{
+    if(navigator.clipboard && navigator.clipboard.writeText){
+      navigator.clipboard.writeText(txt).then(function(){ done(true); }, function(){ done(copyPlainTextExec(txt)); });
+      return;
+    }
+  }catch(e){}
+  done(copyPlainTextExec(txt));
+}
+function copyPlainTextExec(txt){
+  try{
+    let ta = document.createElement('textarea');
+    ta.value = String(txt);
+    ta.style.position = 'fixed'; ta.style.opacity = '0';
+    document.body.appendChild(ta);
+    ta.select();
+    let ok = document.execCommand('copy');
+    document.body.removeChild(ta);
+    return ok;
+  }catch(e){ return false; }
+}
+$(document).off('click.roundcopy').on('click.roundcopy', '.table-roundTop tbody td:first-child', function(){
+  let full = $(this).attr('title') || $(this).text();
+  let $cell = $(this);
+  copyPlainText(full, function(ok){
+    let prev = $cell.html();
+    $cell.html('<span style="color:#0f766e;font-size:10px">' + (ok ? '✓ copied' : 'copy failed') + '</span>');
+    setTimeout(function(){ $cell.html(prev); }, 900);
+  });
+});
 
 // ---- currency helpers ----
 // The dashboard shows EUR by default; the "Financial analysis from player's
