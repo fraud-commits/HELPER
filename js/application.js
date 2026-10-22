@@ -71,6 +71,9 @@ function fmtNum(v, digits){
   let d = (digits === undefined) ? 2 : digits;
   let n = Number(v);
   if(!isFinite(n)){ return '—'; }
+  // large native-currency sums (IDR/INR/… millions) get no decimals so the
+  // tables keep their column widths; explicit digits requests are untouched
+  if(digits === undefined && Math.abs(n) >= 100000){ d = 0; }
   let neg = n < 0;
   let parts = Math.abs(n).toFixed(d).split('.');
   let int = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ','); // comma thousands
