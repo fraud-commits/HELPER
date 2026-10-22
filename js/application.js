@@ -455,15 +455,15 @@ function drawChartJS() {
             GameType = 4,
             BetPosition = 7,
             DealerName = 3,
-            TableName = 6,
-            BetEUR = 8,
-            NetEUR = 9;
+            TableName = 6;
+      let BetEUR = 8, NetEUR = 9;
 
       // ---- detect a consistent native currency for the session ----
       // activates only when the sheet ends with Currency(10) + BET(11) + NET(12)
       // and every row has the same NON-EUR 3-letter currency; otherwise stay in EUR
       SessionNative = ''; NativeBetIdx = -1; NativeNetIdx = -1;
-      let colCount = (sumdata.columns || []).length;
+      let SumCols = (sumdata.columns || []);
+      let colCount = SumCols.length;
       let dt0c = sumdata.data || [];
       if(colCount >= 13){
         let curCol = 10, natBet = 11, natNet = 12;
@@ -481,8 +481,68 @@ function drawChartJS() {
           SessionNative = curPrev; NativeBetIdx = natBet; NativeNetIdx = natNet;
         }
       }
-      console.log('HELPER money columns: BET EUR idx 8, NET EUR idx 9, columns ' + colCount + ', native ' + (SessionNative || '(EUR)')
-      );
+      // ---- resolve safety net ----
+      // 1) trust positions 8/9 when they are really numeric; 2) otherwise
+      // re-locate 'BET EUR'/'NET EUR' by name (aggregated pills like
+      // 'SUM(BET EUR)' match too); 3) never crash: numv() falls back to
+      // parsing formattedValue, unresolved cells sum as 0.
+      function normName(s){ return String(s || '').toLowerCase().replace(/[^a-z0-9]/g, ''); }
+      function parseMoney(txt){
+        if(txt === null || txt === undefined){ return NaN; }
+        let s = String(txt).replace(/\u2212/g, '-').replace(/[^0-9.,\-]/g, '');
+        let hasC = s.indexOf(',') >= 0, hasD = s.indexOf('.') >= 0;
+        if(hasC && hasD){
+          if(s.lastIndexOf(',') > s.lastIndexOf('.')){ s = s.replace(/\./g, '').replace(',', '.'); }
+          else { s = s.replace(/,/g, ''); }
+        } else if(hasC){
+          s = /^-?\d{1,3}(,\d{3})+$/.test(s) ? s.replace(/,/g, '') : s.replace(',', '.');
+        }
+        let v = parseFloat(s);
+        return isFinite(v) ? v : NaN;
+      }
+      function numv(row, idx){
+        let cell = row ? row[idx] : null;
+        if(cell === null || cell === undefined){ return 0; }
+        let v = cell.value;
+        if(typeof v !== 'number' || !isFinite(v)){ v = parseMoney(cell.formattedValue); }
+        if(!isFinite(v)){ v = 0; }
+        return v;
+      }
+      function colNumericOk(idx){
+        if(idx < 0 || idx >= colCount){ return false; }
+        for(let i = 0; i < Math.min(dt0c.length, 40); i++){
+          let cell = dt0c[i][idx];
+          if(cell && typeof cell.value === 'number' && isFinite(cell.value)){ return true; }
+        }
+        return dt0c.length === 0;
+      }
+      function findMoneyCol(sub){
+        let target = normName(sub), loose = null;
+        for(let i = 0; i < colCount; i++){
+          let fn = normName(SumCols[i] && SumCols[i].fieldName);
+          if(!fn){ continue; }
+          if(fn === target){ return i; }
+          if(fn.indexOf(target) >= 0 && loose === null){ loose = i; }
+        }
+        return loose === null ? -1 : loose;
+      }
+      let BetBad = !colNumericOk(BetEUR), NetBad = !colNumericOk(NetEUR);
+      if(BetBad || NetBad){
+        let bByName = findMoneyCol('beteur'), nByName = findMoneyCol('neteur');
+        if(bByName >= 0 && colNumericOk(bByName)){ BetEUR = bByName; }
+        if(nByName >= 0 && colNumericOk(nByName)){ NetEUR = nByName; }
+      }
+      let badge = 'cols=' + colCount + ' · beteur=' + BetEUR + ' · neteur=' + NetEUR + (SessionNative ? ' · native=' + SessionNative : '');
+      if(BetBad && BetEUR === 8){ badge += ' · BetEUR✗'; }
+      if(NetBad && NetEUR === 9){ badge += ' · NetEUR✗'; }
+      let colList = SumCols.slice(0, 16).map(function(c, i){
+        return i + ':' + (c && c.fieldName ? String(c.fieldName).slice(0, 20) : '?');
+      }).join(' | ');
+      console.log('HELPER money shadow: ' + badge);
+      console.log('HELPER sheet columns: ' + colList);
+      try{
+        $('.ext-version').append(' <span style="opacity:.55;font-size:10px">(' + badge + ')</span>');
+      }catch(e){}
 
 
 
@@ -611,8 +671,8 @@ Trigger();
 
   function totalCounter(indexStart){
 //Tableau Bet and Net messure Sum
-   TotalBet += worksheetData[indexStart][BetEUR].value;
-   TotalNet += worksheetData[indexStart][NetEUR].value;
+   TotalBet += numv(worksheetData[indexStart], BetEUR);
+   TotalNet += numv(worksheetData[indexStart], NetEUR);
 
   }
 
@@ -775,18 +835,18 @@ function RoundTotla(indexStart,indexNext){
 
   let element = RoundArry.find(e => e.RoundId === worksheetData[indexStart][RoundID].formattedValue);
   if (element) {
-    element.TotalRoundBet += worksheetData[indexStart][BetEUR].value;
-    element.TotalRoundNet += worksheetData[indexStart][NetEUR].value;
+    element.TotalRoundBet += numv(worksheetData[indexStart], BetEUR);
+    element.TotalRoundNet += numv(worksheetData[indexStart], NetEUR);
     // native per-round sums (used by the "Financial analysis" block when the
     // session has one consistent non-EUR currency with native BET/NET in the sheet)
     if(NativeBetIdx >= 0){
-      element.NativeBet = (element.NativeBet || 0) + worksheetData[indexStart][NativeBetIdx].value;
-      element.NativeNet = (element.NativeNet || 0) + worksheetData[indexStart][NativeNetIdx].value;
+      element.NativeBet = (element.NativeBet || 0) + numv(worksheetData[indexStart], NativeBetIdx);
+      element.NativeNet = (element.NativeNet || 0) + numv(worksheetData[indexStart], NativeNetIdx);
     }
     // base hand stake excludes in-game actions (blackjack double/split/insurance) —
     // those are hand decisions, not staking decisions, so progression uses BaseBet
     if(!isHandAction(worksheetData[indexStart][GameType].formattedValue, worksheetData[indexStart][BetPosition].formattedValue)){
-      element.BaseBet += worksheetData[indexStart][BetEUR].value;
+      element.BaseBet += numv(worksheetData[indexStart], BetEUR);
     }
     // per-round bet-position set (roulette layout coverage analysis)
     if(!element.Positions){ element.Positions = {}; }
@@ -795,22 +855,22 @@ function RoundTotla(indexStart,indexNext){
 
 let element2 = DealerArry.find(e => e.DealerName === worksheetData[indexStart][DealerName].formattedValue);
 if (element2 ) {
-  element2.TotalBet += worksheetData[indexStart][BetEUR].value;
-  element2.TotalNet += worksheetData[indexStart][NetEUR].value;
+  element2.TotalBet += numv(worksheetData[indexStart], BetEUR);
+  element2.TotalNet += numv(worksheetData[indexStart], NetEUR);
 
 }
 
 // table statistics (per table id / game type)
 let element4 = TableArry.find(e => e.TableName === worksheetData[indexStart][TableName].formattedValue);
 if (element4) {
-  element4.TotalBet += worksheetData[indexStart][BetEUR].value;
-  element4.TotalNet += worksheetData[indexStart][NetEUR].value;
+  element4.TotalBet += numv(worksheetData[indexStart], BetEUR);
+  element4.TotalNet += numv(worksheetData[indexStart], NetEUR);
 }
 
 let element3 = BetPositionArry.find(e => e.BetPosition === worksheetData[indexStart][BetPosition].formattedValue && e.GameType === worksheetData[indexStart][GameType].formattedValue);
 if (element3 ) {
-  element3.TotalBet += worksheetData[indexStart][BetEUR].value;
-  element3.TotalNet += worksheetData[indexStart][NetEUR].value;
+  element3.TotalBet += numv(worksheetData[indexStart], BetEUR);
+  element3.TotalNet += numv(worksheetData[indexStart], NetEUR);
   element3.RoundCount += 1;
   element3.Category = betCategory(worksheetData[indexStart][GameType].formattedValue, worksheetData[indexStart][BetPosition].formattedValue);
  
