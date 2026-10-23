@@ -2308,7 +2308,7 @@ function computeWinnerAnswers(){
   // shown in that native currency; everything else on the dashboard stays in EUR.
   let useNative = modeNative();
   let repCur = useNative ? currencyLabel(SessionNative) : '€';
-  function repEur(v){ return repCur + fmtNum(Math.abs(v)); }
+  function repEur(v){ return String(repCur).trim() + ' ' + fmtNum(Math.abs(v)); }
   function rBet(e){ return (useNative && e.NativeBet !== undefined) ? e.NativeBet : e.TotalRoundBet; }
   function rNet(e){ return (useNative && e.NativeNet !== undefined) ? e.NativeNet : e.TotalRoundNet; }
   let scope = RoundArry;
@@ -2680,7 +2680,6 @@ $(document).off('click.charttip-out').on('click.charttip-out', function(e){
 
 
  
-
 
 
 
