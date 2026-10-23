@@ -940,10 +940,18 @@ body.dark .badge-long-c{ background-color: #B03A44 !important; }
 .dim-table td, .table-roundTop td, .table-bettop td{
   white-space: nowrap;
 }
-.dim-table th:nth-child(4), .dim-table td:nth-child(4),
-.table-bettop th:nth-child(5), .table-bettop td:nth-child(5){
-  text-align: right;
-  padding-left: 16px;
+/* Table alignment: labels stay left; every numeric column is centred. */
+.dim-table th:first-child, .dim-table td:first-child,
+.table-roundTop th:first-child, .table-roundTop td:first-child,
+.table-bettop th:first-child, .table-bettop td:first-child,
+.table-bettop th:last-child, .table-bettop td:last-child{
+  text-align: left !important;
+}
+.dim-table th:not(:first-child), .dim-table td:not(:first-child),
+.table-roundTop th:not(:first-child), .table-roundTop td:not(:first-child),
+.table-bettop th:nth-child(n+2):nth-child(-n+5),
+.table-bettop td:nth-child(n+2):nth-child(-n+5){
+  text-align: center !important;
 }
 /* second chip sits in the Financial analysis card header */
 #currency-toggle-2{
