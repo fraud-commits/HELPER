@@ -694,6 +694,7 @@ let NativeTotalNet = 0;
             let up = 0,
             same = 0,
             negativ = 0,
+            betRaise = 0,  // raise after a loss + raise after a win (escalation counter)
             martingeil = 0;
 
             // in blackjack, double/split/insurance are hand decisions, not staking changes —
@@ -1425,7 +1426,9 @@ function BetProgression (){
       // raise after a loss → negative pattern (any size, not just 2x);
       // Martingale is detected separately below (it needs a run of 5+ doublings)
       negativ += 1; // Negative
+      betRaise += 1; // escalation counter: stake raised
     }else if(nextBet > curBet){
+      betRaise += 1; // escalation counter: stake raised
       up += 1; // raise after a win → positive pattern
     }else if(curNet > 0){
       negativ += 1; // lower after a win (back to base) → negative pattern
@@ -1880,7 +1883,10 @@ function generateFindings(){
   }
   // erratic = both systems strongly present with no clear dominance
   // (a 56/24 martingale-style split is dominance, not chaos)
-  if(rounds >= 15 && negPct >= 25 && upPct >= 25 && Math.abs(negPct - upPct) < 25){
+  // raise after loss AND raise after win dominating together is not chaos —
+  // it is an escalation ladder: stakes climb regardless of the outcome
+  let raiseDominant = rounds > 0 && betRaise / rounds >= 0.6;
+  if(rounds >= 15 && negPct >= 25 && upPct >= 25 && Math.abs(negPct - upPct) < 25 && !raiseDominant){
     if(isLowPositionGame(domGame)){
       // card games have only a few positions: mixing sides and stake sizes is
       // normal play, and the bot check covers the scripting question separately
@@ -2230,12 +2236,17 @@ function computeWinnerAnswers(){
   let decidedD = (typeof WinRoundCnt !== 'undefined' && (WinRoundCnt + LossRoundCnt) > 0) ? (WinRoundCnt + LossRoundCnt) : rounds;
   let negPctD = decidedD > 0 ? negativ / decidedD * 100 : 0;
   let upPctD  = decidedD > 0 ? up / decidedD * 100 : 0;
-  let erratic = rounds >= 15 && negPctD >= 25 && upPctD >= 25 && Math.abs(negPctD - upPctD) < 25;
+  let raisePctD = decidedD > 0 ? betRaise / decidedD * 100 : 0;
+  // stakes raised after a loss AND after a win both dominate → the ladder
+  // climbs regardless of the outcome: progressive betting, not chaotic
+  let raiseDominant = raisePctD >= 60 && negPctD < 70 && upPctD < 70;
+  let erratic = rounds >= 15 && negPctD >= 25 && upPctD >= 25 && Math.abs(negPctD - upPctD) < 25 && !raiseDominant;
 
   let prog;
   if(rounds <= 1){ prog = 'Other one'; }
   else if(martingeil >= 1 && negPct >= 50){ prog = 'Martingale betting system'; }
   else if(samePct >= 70){ prog = 'Flat wagers'; }
+  else if(raiseDominant){ prog = 'Progressive betting'; }
   else if(erratic){ prog = 'Chaotic wagers, regardless to previous game outcome'; }
   else if(negPct >= 70){ prog = 'Negative progression'; }
   else if(negPct >= 50){ prog = 'Mainly negative betting progression'; }
