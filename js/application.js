@@ -66,31 +66,18 @@ $(document).off('click.themetoggle', '#theme-toggle').on('click.themetoggle', '#
   applyTheme(document.body.classList.contains('dark') ? 'light' : 'dark');
   drawChartJS(); // re-render so canvas colors follow the theme
 });
-// ---- manual refresh: deep re-pull + re-render (e.g. the player just changed) ----
-// deep refresh (data source refreshAsync) re-queries the server so new rounds enter
-// the summary; if that is unavailable, fall back to plain getSummaryDataAsync re-render
+// ---- manual refresh: tool-side only ----
+// the workbook data source is NOT re-queried (no refreshAsync) — the extension
+// just re-reads the worksheet summary cache and re-renders; overlay blur is
+// already toggled inside drawChartJS
 $(document).off('click.extrefresh', '#ext-refresh').on('click.extrefresh', '#ext-refresh', function(){
   let btn = $(this);
   if(btn.hasClass('busy')){ return; } // one refresh at a time
   btn.addClass('busy').blur();
   btn.find('i').attr('class','bi bi-arrow-repeat spin');
-  loadOverlay(true, 'Refreshing…'); // blur the dashboard while the data re-pulls
-  function done(){
-    btn.removeClass('busy');
-    btn.find('i').attr('class','bi bi-arrow-repeat');
-    loadOverlay(false); // data is in and rendered — remove the blur
-  }
-  let ws = null;
-  try{ ws = findFraudSheet(tableau.extensions.dashboardContent.dashboard.worksheets); }catch(e){ ws = null; }
-  let p = (ws && ws.getDataSourcesAsync) ? ws.getDataSourcesAsync() : Promise.reject(new Error('no source'));
-  p.then(function(dss){
-    return Promise.all((dss || []).map(function(ds){
-      try{ return ds.refreshAsync().catch(function(){ return null; }); }catch(e){ return Promise.resolve(null); }
-    }));
-  }).catch(function(){ return null; }).then(function(){
-    drawChartJS();
-    done();
-  });
+  try{ drawChartJS(); }catch(e){ /* drawChartJS wraps its own re-render */ }
+  btn.removeClass('busy');
+  btn.find('i').attr('class','bi bi-arrow-repeat');
 });
 
 // theme token reader (CSS variables in style.css); chart follows a future
