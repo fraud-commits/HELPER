@@ -1205,3 +1205,11 @@ body.dark .badge-long-c{ background-color: #B03A44 !important; }
   white-space: normal;
   word-break: break-all;
 }
+
+/* refresh button on the player bar: icon spins while the data re-pulls */
+#ext-refresh.busy i{
+  animation: ext-spin 0.9s linear infinite;
+}
+@keyframes ext-spin{
+  to { transform: rotate(360deg); }
+}

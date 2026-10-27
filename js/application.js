@@ -51,6 +51,30 @@ $(document).off('click.themetoggle', '#theme-toggle').on('click.themetoggle', '#
   applyTheme(document.body.classList.contains('dark') ? 'light' : 'dark');
   drawChartJS(); // re-render so canvas colors follow the theme
 });
+// ---- manual refresh: deep re-pull + re-render (e.g. the player just changed) ----
+// deep refresh (data source refreshAsync) re-queries the server so new rounds enter
+// the summary; if that is unavailable, fall back to plain getSummaryDataAsync re-render
+$(document).off('click.extrefresh', '#ext-refresh').on('click.extrefresh', '#ext-refresh', function(){
+  let btn = $(this);
+  if(btn.hasClass('busy')){ return; } // one refresh at a time
+  btn.addClass('busy').blur();
+  btn.find('i').attr('class','bi bi-arrow-repeat spin');
+  function done(){
+    btn.removeClass('busy');
+    btn.find('i').attr('class','bi bi-arrow-repeat');
+  }
+  let ws = null;
+  try{ ws = findFraudSheet(tableau.extensions.dashboardContent.dashboard.worksheets); }catch(e){ ws = null; }
+  let p = (ws && ws.getDataSourcesAsync) ? ws.getDataSourcesAsync() : Promise.reject(new Error('no source'));
+  p.then(function(dss){
+    return Promise.all((dss || []).map(function(ds){
+      try{ return ds.refreshAsync().catch(function(){ return null; }); }catch(e){ return Promise.resolve(null); }
+    }));
+  }).catch(function(){ return null; }).then(function(){
+    drawChartJS();
+    done();
+  });
+});
 
 // theme token reader (CSS variables in style.css); chart follows a future
 // dark theme automatically, falls back to light values if unavailable
