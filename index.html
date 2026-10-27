@@ -5,7 +5,7 @@
     <link rel="stylesheet" type="text/css"
         href="https://cdn.jsdelivr.net/npm/bootstrap@5.2.0/dist/css/bootstrap.min.css">
 
-    <link rel="stylesheet" href="style/style.css?v=20261027-10">
+    <link rel="stylesheet" href="style/style.css?v=20261027-11">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.9.1/font/bootstrap-icons.css">
     <link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/1.13.1/css/jquery.dataTables.css">
     
@@ -14,14 +14,14 @@
 <body>
     <div class="main-content col-container">
 
-        <div id="empty-state" style="display:none;">
+        <div id="empty-state" style="display:flex;">
             <i class="bi bi-person-plus"></i>
             <h4>Add Player ID</h4>
             <p>Enter a Player Id in the parameter field above<br>to run the gameplay analysis.</p>
             <button type="button" id="ext-refresh-empty" class="theme-toggle" title="Refresh: re-read the worksheet summary"><i class="bi bi-arrow-repeat"></i> Refresh</button>
         </div>
 
-        <div class="row" id="dashboard-content">
+        <div class="row" id="dashboard-content" style="display:none;">
 
             <div class="row">
                 <div class="col-12">
@@ -361,7 +361,7 @@
             </div>
             <div class="row">
                 <div class="col-12 text-center">
-                    <span class="ext-version">helper v2026-10-27-10</span>
+                    <span class="ext-version">helper v2026-10-27-11</span>
                 </div>
             </div>
         </div>
@@ -385,6 +385,6 @@
     </div>
 </div>
 
-<script type="text/javascript" src="js/application.js?v=20261027-10"></script>
+<script type="text/javascript" src="js/application.js?v=20261027-11"></script>
 
 </html>
