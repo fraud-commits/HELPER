@@ -79,7 +79,8 @@ function refreshHintTick(){
       let pm = null;
       (params || []).forEach(function(pr){
         let pn = String(pr && pr.name || '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
-        if(pr && (pn === 'player filter' || pn === 'player id')){ pm = pr; }
+        let isPlayerParam = (pn.indexOf('player') >= 0 || pn.indexOf('user') >= 0) && (pn.indexOf('id') >= 0 || pn.indexOf('filter') >= 0);
+        if(pr && isPlayerParam){ pm = pr; }
       });
       let pv = pm && pm.currentValue;
       let cur = pv ? String(pv.value !== undefined && pv.value !== null ? pv.value : (pv.formattedValue || '')).trim() : '';
