@@ -66,6 +66,34 @@ $(document).off('click.themetoggle', '#theme-toggle').on('click.themetoggle', '#
   applyTheme(document.body.classList.contains('dark') ? 'light' : 'dark');
   drawChartJS(); // re-render so canvas colors follow the theme
 });
+// ---- player-freshness reminder ----
+// the dashboard parameter 'Player Filter' (<operator>:<player id>) decides what the
+// sheet serves; when it changes but the summary lags, the tool keeps showing the
+// previous player — a polling check compares them and pulses the ⟳ refresh button
+let RefreshHintShown = '';
+function refreshHintTick(){
+  try{
+    let dash = tableau.extensions && tableau.extensions.dashboardContent && tableau.extensions.dashboardContent.dashboard;
+    if(!dash || !dash.getParametersAsync){ return; }
+    dash.getParametersAsync().then(function(params){
+      let pm = null;
+      (params || []).forEach(function(pr){
+        if(pr && String(pr.name || '').toLowerCase() === 'player filter'){ pm = pr; }
+      });
+      let pv = pm && pm.currentValue;
+      let cur = pv ? String(pv.value !== undefined && pv.value !== null ? pv.value : (pv.formattedValue || '')).trim() : '';
+      function hintNorm(v){ return String(v || '').toLowerCase().replace(/[^a-z0-9:_.]+/g, ''); }
+      let ok = !cur || !RefreshHintShown || hintNorm(cur) === hintNorm(RefreshHintShown);
+      let $btn = $('#ext-refresh');
+      if(!$btn.length){ return; }
+      $btn.toggleClass('needs-refresh', !ok);
+      $btn[0].title = !ok
+        ? 'Parameter (Player Filter) no longer matches the player shown — click Refresh to re-read the summary'
+        : 'Refresh: re-read the summary and re-render';
+    }).catch(function(){});
+  }catch(e){}
+}
+setInterval(refreshHintTick, 5000);
 // ---- manual refresh: tool-side only ----
 // the workbook data source is NOT re-queried (no refreshAsync) — the extension
 // just re-reads the worksheet summary cache and re-renders; overlay blur is
@@ -73,6 +101,7 @@ $(document).off('click.themetoggle', '#theme-toggle').on('click.themetoggle', '#
 $(document).off('click.extrefresh', '#ext-refresh').on('click.extrefresh', '#ext-refresh', function(){
   let btn = $(this);
   if(btn.hasClass('busy')){ return; } // one refresh at a time
+  btn.removeClass('needs-refresh'); // reminder off until the fresh render re-checks
   btn.addClass('busy').blur();
   btn.find('i').attr('class','bi bi-arrow-repeat spin');
   try{ drawChartJS(); }catch(e){ /* drawChartJS wraps its own re-render */ }
@@ -774,6 +803,8 @@ function Trigger(){
     $('.bo-link').hide();
     $('.bo-url').text('');
   }
+  // known by the reminder poll: the player this render actually shows
+  RefreshHintShown = (operatorId && playerId) ? (operatorId + ':' + playerId) : playerId;
 
   for (var i = 0; i < worksheetData.length; i++) {
 

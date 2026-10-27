@@ -1241,3 +1241,14 @@ body.dark .badge-long-c{ background-color: #B03A44 !important; }
   animation: ext-spin 1s linear infinite;
   font-size:1.15rem;
 }
+
+/* freshness reminder: parameter and shown player disagree — ⟳ button pulses */
+#ext-refresh.needs-refresh{
+  color:var(--warn-ink, #e8a020);
+  border-color:var(--warn, #f6b343);
+  animation: ext-pulse 1.2s ease infinite;
+}
+@keyframes ext-pulse{
+  0%, 100% { box-shadow:0 0 0 0 rgba(246,179,67,0.55); }
+  50%      { box-shadow:0 0 0 6px rgba(246,179,67,0); }
+}
