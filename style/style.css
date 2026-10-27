@@ -1147,6 +1147,10 @@ body.dark .badge-long-c{ background-color: #B03A44 !important; }
   margin-bottom:0;
 }
 
+#empty-state #ext-refresh-empty{
+  margin-top:12px;
+}
+
 #empty-state h4{
   font-weight: 600;
   color: var(--ink-2);
