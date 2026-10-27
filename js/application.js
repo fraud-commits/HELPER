@@ -91,7 +91,10 @@ function refreshHintTick(){
         if(x.indexOf(':') >= 0){ x = x.slice(x.lastIndexOf(':') + 1); }
         return x.replace(/[^a-z0-9_.-]+/g, '');
       }
-      let shown = playerNorm(RefreshHintShown);
+      // Read the ID currently visible in the header; the cached variable can be
+      // stale while Tableau is changing a parameter.
+      let shownText = $('.PlayerId').first().text().trim() || RefreshHintShown;
+      let shown = playerNorm(shownText);
       let wanted = playerNorm(cur);
       let ok = !pm || !wanted || !shown || wanted === shown;
       let $btn = $('#ext-refresh, #ext-refresh-empty');
