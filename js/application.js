@@ -67,9 +67,9 @@ $(document).off('click.themetoggle', '#theme-toggle').on('click.themetoggle', '#
   drawChartJS(); // re-render so canvas colors follow the theme
 });
 // ---- player-freshness reminder ----
-// the dashboard parameter 'Player Filter' (<operator>:<player id>) decides what the
-// sheet serves; when it changes but the summary lags, the tool keeps showing the
-// previous player — a polling check compares them and pulses the ⟳ refresh button
+// the dashboard parameter (Player Filter / Player Id) decides what the sheet serves;
+// when it changes but the summary lags, the tool keeps showing the previous player
+// — a polling check compares player IDs and pulses the ⟳ refresh button
 let RefreshHintShown = '';
 function refreshHintTick(){
   try{
@@ -78,17 +78,26 @@ function refreshHintTick(){
     dash.getParametersAsync().then(function(params){
       let pm = null;
       (params || []).forEach(function(pr){
-        if(pr && String(pr.name || '').toLowerCase() === 'player filter'){ pm = pr; }
+        let pn = String(pr && pr.name || '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+        if(pr && (pn === 'player filter' || pn === 'player id')){ pm = pr; }
       });
       let pv = pm && pm.currentValue;
       let cur = pv ? String(pv.value !== undefined && pv.value !== null ? pv.value : (pv.formattedValue || '')).trim() : '';
-      function hintNorm(v){ return String(v || '').toLowerCase().replace(/[^a-z0-9:_.]+/g, ''); }
-      let ok = !cur || !RefreshHintShown || hintNorm(cur) === hintNorm(RefreshHintShown);
+      // The parameter may be just 26708573 or operator:26708573.
+      // The extension header stores only the player ID, so compare that part only.
+      function playerNorm(v){
+        let x = String(v || '').trim().toLowerCase();
+        if(x.indexOf(':') >= 0){ x = x.slice(x.lastIndexOf(':') + 1); }
+        return x.replace(/[^a-z0-9_.-]+/g, '');
+      }
+      let shown = playerNorm(RefreshHintShown);
+      let wanted = playerNorm(cur);
+      let ok = !pm || !wanted || !shown || wanted === shown;
       let $btn = $('#ext-refresh');
       if(!$btn.length){ return; }
       $btn.toggleClass('needs-refresh', !ok);
       $btn[0].title = !ok
-        ? 'Parameter (Player Filter) no longer matches the player shown — click Refresh to re-read the summary'
+        ? 'Player Id no longer matches the player shown — click Refresh to re-read the summary'
         : 'Refresh: re-read the summary and re-render';
     }).catch(function(){});
   }catch(e){}
@@ -804,7 +813,7 @@ function Trigger(){
     $('.bo-url').text('');
   }
   // known by the reminder poll: the player this render actually shows
-  RefreshHintShown = (operatorId && playerId) ? (operatorId + ':' + playerId) : playerId;
+  RefreshHintShown = playerId;
 
   for (var i = 0; i < worksheetData.length; i++) {
 
