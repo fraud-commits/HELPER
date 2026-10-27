@@ -1243,7 +1243,8 @@ body.dark .badge-long-c{ background-color: #B03A44 !important; }
 }
 
 /* freshness reminder: parameter and shown player disagree — ⟳ button pulses */
-#ext-refresh.needs-refresh{
+#ext-refresh.needs-refresh,
+#ext-refresh-empty.needs-refresh{
   color:var(--warn-ink, #e8a020);
   border-color:var(--warn, #f6b343);
   animation: ext-pulse 1.2s ease infinite;

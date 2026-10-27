@@ -94,7 +94,7 @@ function refreshHintTick(){
       let shown = playerNorm(RefreshHintShown);
       let wanted = playerNorm(cur);
       let ok = !pm || !wanted || !shown || wanted === shown;
-      let $btn = $('#ext-refresh');
+      let $btn = $('#ext-refresh, #ext-refresh-empty');
       if(!$btn.length){ return; }
       $btn.toggleClass('needs-refresh', !ok);
       $btn[0].title = !ok
@@ -108,7 +108,7 @@ setInterval(refreshHintTick, 5000);
 // the workbook data source is NOT re-queried (no refreshAsync) — the extension
 // just re-reads the worksheet summary cache and re-renders; overlay blur is
 // already toggled inside drawChartJS
-$(document).off('click.extrefresh', '#ext-refresh').on('click.extrefresh', '#ext-refresh', function(){
+$(document).off('click.extrefresh', '#ext-refresh, #ext-refresh-empty').on('click.extrefresh', '#ext-refresh, #ext-refresh-empty', function(){
   let btn = $(this);
   if(btn.hasClass('busy')){ return; } // one refresh at a time
   btn.removeClass('needs-refresh'); // reminder off until the fresh render re-checks
