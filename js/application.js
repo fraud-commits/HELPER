@@ -42,6 +42,21 @@ function initTheme(){
   applyTheme(mode, false);
 }
 initTheme();
+// ---- loading overlay: shown while Tableau data is being re-pulled, removed when
+// the render finishes — Load pipeline: reset -> fetch -> render -> unblur ----
+function loadOverlay(show, text){
+  let $ov = $('#load-overlay');
+  if(!$ov.length){ return; }
+  if(show){
+    $ov.find('.load-text').text(text || 'Loading…');
+    $ov.css('display', 'flex');
+  }else{
+    $ov.hide();
+  }
+}
+// any global error must not leave the blur on screen
+window.addEventListener('error', function(){ loadOverlay(false); });
+window.addEventListener('unhandledrejection', function(){ loadOverlay(false); });
 $(document).off('click.curtoggle', '#currency-toggle, #currency-toggle-2').on('click.curtoggle', '#currency-toggle, #currency-toggle-2', function(){
   $(this).blur(); // no stuck focus highlight on the chip
   MoneyMode = (MoneyMode === 'native') ? 'eur' : 'native';
@@ -59,9 +74,11 @@ $(document).off('click.extrefresh', '#ext-refresh').on('click.extrefresh', '#ext
   if(btn.hasClass('busy')){ return; } // one refresh at a time
   btn.addClass('busy').blur();
   btn.find('i').attr('class','bi bi-arrow-repeat spin');
+  loadOverlay(true, 'Refreshing…'); // blur the dashboard while the data re-pulls
   function done(){
     btn.removeClass('busy');
     btn.find('i').attr('class','bi bi-arrow-repeat');
+    loadOverlay(false); // data is in and rendered — remove the blur
   }
   let ws = null;
   try{ ws = findFraudSheet(tableau.extensions.dashboardContent.dashboard.worksheets); }catch(e){ ws = null; }
@@ -485,6 +502,7 @@ function getSettings() {
 
 function drawChartJS() {
 
+   loadOverlay(true, 'Refreshing…'); // pipeline step: hide the previous render
    const worksheets = tableau.extensions.dashboardContent.dashboard.worksheets;
 
    var worksheet = findFraudSheet(worksheets);
@@ -500,6 +518,7 @@ function drawChartJS() {
      if (!sumdata.data || sumdata.data.length === 0) {
        $('#dashboard-content').hide();
        $('#empty-state').css('display', 'flex');
+       loadOverlay(false);
        return;
      }
      $('#empty-state').hide();
@@ -2680,6 +2699,7 @@ $(document).off('click.charttip-out').on('click.charttip-out', function(e){
   if($(e.target).closest('#chart-tip').length){ return; }
   chartTipHide();
 });
+  loadOverlay(false); // pipeline done: render is complete, remove the loading blur
 
 
 

@@ -1213,3 +1213,31 @@ body.dark .badge-long-c{ background-color: #B03A44 !important; }
 @keyframes ext-spin{
   to { transform: rotate(360deg); }
 }
+
+/* loading overlay: while the data re-pulls, the whole extension sits behind
+   a soft blur so half-rendered tables are never visible; removed on completion */
+#load-overlay{
+  display:none;
+  position:fixed;
+  inset:0;
+  z-index:4000;
+  background:rgba(127,127,127,0.18);
+  backdrop-filter:blur(3px);
+  -webkit-backdrop-filter:blur(3px);
+  align-items:center;
+  justify-content:center;
+}
+#load-overlay .load-box{
+  display:flex;
+  align-items:center;
+  gap:10px;
+  background:var(--card-bg, #ffffff);
+  color:var(--ink, #2a2a2a);
+  border-radius:12px;
+  padding:14px 22px;
+  box-shadow:0 8px 30px rgba(0,0,0,0.18);
+}
+#load-overlay .load-box i{
+  animation: ext-spin 1s linear infinite;
+  font-size:1.15rem;
+}
