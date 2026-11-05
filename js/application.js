@@ -863,8 +863,8 @@ Trigger();
     return (typeof v === 'number' && v < 0) ? '<span class="neg-val">' + txt + '</span>' : txt;
   }
 
-  $('.Totalbet').text(moneySym() + " " + fmtNum(modeNative() ? NativeTotalBet : TotalBet));
-  $('.Totalnet').text(moneySym() + " " + fmtNum(modeNative() ? NativeTotalNet : TotalNet)).toggleClass('neg-val', (modeNative() ? NativeTotalNet : TotalNet) < 0);
+  $('.Totalbet').text(moneySym() + " " + fmtNum(modeNative() ? NativeTotalBet : TotalBet, 2));
+  $('.Totalnet').text(moneySym() + " " + fmtNum(modeNative() ? NativeTotalNet : TotalNet, 2)).toggleClass('neg-val', (modeNative() ? NativeTotalNet : TotalNet) < 0);
   // session margin bar encodes RISK, not the sign: teal in the normal band,
   // neutral grey when the player loses (casino profits — nothing to flag),
   // red only when abnormally high (>= 50%, worth attention);
