@@ -786,7 +786,12 @@ let NativeTotalNet = 0;
               if(g.indexOf('BACCARAT') !== -1){ return /PAIR|EITHER|PERFECT|SUPER/.test(p) ? 'Side Bet' : 'Main Bet'; }
               if(g.indexOf('BLACKJACK') !== -1){ return /^21\+3|^PAIR|BONUS|DEALER_PAIR|DEALER_BUST|LUCKY_LADIES/.test(p) ? 'Side Bet' : 'Main Bet'; }
               if(g.indexOf('TEEN PATTI') !== -1){ return p.indexOf('PAIR PLUS') !== -1 ? 'Side Bet' : 'Main Bet'; }
-              if(g.indexOf('DRAGON TIGER') !== -1){ return /BIG|SMALL|ODD|EVEN/.test(p) ? 'Side Bet' : 'Main Bet'; }
+              if(g.indexOf('DRAGON TIGER') !== -1){
+                // Dragon Tiger main bets are only Dragon, Tiger, Tie and Suited Tie.
+                // Everything else (Black/Red/Odd/Even/Big/Small, etc.) is a side bet.
+                let dtMain = p.replace(/[^A-Z0-9]+/g, ' ').trim();
+                return /^(DRAGON|TIGER|TIE|SUITED TIE)$/.test(dtMain) ? 'Main Bet' : 'Side Bet';
+              }
               return 'Main Bet';
             }
             
