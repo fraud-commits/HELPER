@@ -1774,8 +1774,8 @@ function BetPositionTop(){
     let e = scope[i];
     rows += (`
       <tr>
-                                          <td>` + e.BetPosition + `</td>
-                                            <td>` + e.GameType + `</td>
+                                          <td>` + e.GameType + `</td>
+                                            <td>` + e.BetPosition + `</td>
                                             <td>` + fmtNum(aggBet(e)) + `</td>
                                                 <td` + negClass(e.TotalNet) + `>` + fmtNum(aggNet(e)) + `</td>
                                                 <td` + negClass(e.TotalNet) + `>` + fmtNum(e.TotalBet > 0 ? e.TotalNet / e.TotalBet * 100 : 0) + ` % </td>
