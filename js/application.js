@@ -784,7 +784,7 @@ let NativeTotalNet = 0;
               let p = String(pos || '').toUpperCase();
               if(p.indexOf('BONUS') !== -1){ return 'Side Bet'; }
               if(g.indexOf('BACCARAT') !== -1){ return /PAIR|EITHER|PERFECT|SUPER/.test(p) ? 'Side Bet' : 'Main Bet'; }
-              if(g.indexOf('BLACKJACK') !== -1){ return /^21\+3|^PAIR|BONUS|DEALER_PAIR|DEALER_BUST|LUCKY_LADIES/.test(p) ? 'Side Bet' : 'Main Bet'; }
+              if(g.indexOf('BLACKJACK') !== -1){ return /21\+3|PAIR|BONUS|DEALER_BUST|LUCKY_LADIES/.test(p) ? 'Side Bet' : 'Main Bet'; }
               if(g.indexOf('TEEN PATTI') !== -1){ return p.indexOf('PAIR PLUS') !== -1 ? 'Side Bet' : 'Main Bet'; }
               if(g.indexOf('DRAGON TIGER') !== -1){
                 // Dragon Tiger main bets are only Dragon, Tiger, Tie and Suited Tie.
