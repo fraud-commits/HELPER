@@ -143,7 +143,9 @@ function fmtNum(v, digits){
   if(!isFinite(n)){ return '—'; }
   // large native-currency sums (IDR/INR/… millions) get no decimals so the
   // tables keep their column widths; explicit digits requests are untouched
-  if(digits === undefined && Math.abs(n) >= 100000){ d = 0; }
+  // Only in EUR mode large sums drop cents to keep tables compact.
+  // Native currency values keep decimals even for very large amounts.
+  if(digits === undefined && !modeNative() && Math.abs(n) >= 100000){ d = 0; }
   let neg = n < 0;
   let parts = Math.abs(n).toFixed(d).split('.');
   let int = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ','); // comma thousands
