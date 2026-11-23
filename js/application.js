@@ -141,10 +141,9 @@ function fmtNum(v, digits){
   let d = (digits === undefined) ? 2 : digits;
   let n = Number(v);
   if(!isFinite(n)){ return '—'; }
-  // large native-currency sums (IDR/INR/… millions) get no decimals so the
-  // tables keep their column widths; explicit digits requests are untouched
-  // Native currency large sums drop cents to keep tables compact.
-  // EUR values keep decimals even for very large amounts.
+  // Native-currency sums of 100,000+ drop cents so tables keep their widths
+  // (IDR/INR amounts run into the millions). EUR always keeps cents, and an
+  // explicit digits request (fmtNum(x, 2)) is never overridden.
   if(digits === undefined && modeNative() && Math.abs(n) >= 100000){ d = 0; }
   let neg = n < 0;
   let parts = Math.abs(n).toFixed(d).split('.');
@@ -206,6 +205,11 @@ let NativeNetIdx = -1;    // summary column index of native NET (when usable)
 // whole-dashboard currency mode: 'eur' (default) | 'native' (header switch)
 let MoneyMode = 'eur';
 let MoneyModeCur = '';    // native code the current mode was set for (resets on currency change)
+
+// Native-currency display check. Declared at the top level on purpose: fmtNum
+// (above) formats money for every table/card and must know the active mode, while
+// the render helpers inside the summary callback share the very same rule.
+function modeNative(){ return MoneyMode === 'native' && SessionNative && NativeBetIdx >= 0; }
 
 // Watchdog: if Tableau never answers with data (blocked extension, missing
 // sheet, unset filters), say so instead of leaving eternal zeros/dashes.
@@ -707,7 +711,7 @@ function drawChartJS() {
         }
       }
       // ---- display helpers for the active currency mode ----
-      function modeNative(){ return MoneyMode === 'native' && SessionNative && NativeBetIdx >= 0; }
+      // (modeNative() is the top-level helper above — one rule for fmtNum and here)
       function moneySym(){ return modeNative() ? currencyLabel(SessionNative) : String.fromCharCode(8364); }
       function aggBet(e){ return modeNative() ? (e.NativeBet || 0) : e.TotalBet; }
       function aggNet(e){ return modeNative() ? (e.NativeNet || 0) : e.TotalNet; }
