@@ -141,10 +141,11 @@ function fmtNum(v, digits){
   let d = (digits === undefined) ? 2 : digits;
   let n = Number(v);
   if(!isFinite(n)){ return '—'; }
-  // Native-currency sums of 100,000+ drop cents so tables keep their widths
-  // (IDR/INR amounts run into the millions). EUR always keeps cents, and an
-  // explicit digits request (fmtNum(x, 2)) is never overridden.
-  if(digits === undefined && modeNative() && Math.abs(n) >= 100000){ d = 0; }
+  // Native-currency sums of 10,000,000+ drop cents: only truly huge amounts
+  // (IDR/INR in the tens of millions) are compacted, everyday values keep
+  // cents. EUR always keeps cents, and an explicit digits request
+  // (fmtNum(x, 2)) is never overridden.
+  if(digits === undefined && modeNative() && Math.abs(n) >= 10000000){ d = 0; }
   let neg = n < 0;
   let parts = Math.abs(n).toFixed(d).split('.');
   let int = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ','); // comma thousands
